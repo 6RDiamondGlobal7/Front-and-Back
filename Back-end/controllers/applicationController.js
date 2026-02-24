@@ -51,6 +51,107 @@ const toIntegerInRange = (value, min, max, fallback) => {
     return parsed;
 };
 
+const normalizeText = (value) => String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+const ROLE_ID_TO_TITLE = {
+    'corp-sec': 'Corporate Secretary',
+    'licensed-broker': 'Licensed Customs Broker',
+    'office-manager': 'Office Manager',
+    'messenger': 'Messenger / Logistics',
+    'secretary': 'Secretary to the Office Manager',
+    'brokerage-specialist': 'Brokerage Specialist',
+    'import-export-head': 'Import & Export Head',
+    'admin-staff': 'Administration Staff',
+    'doc-head': 'Documentations Head'
+};
+
+const TITLE_TO_ROLE_IDS = Object.entries(ROLE_ID_TO_TITLE).reduce((acc, [roleId, title]) => {
+    const key = normalizeText(title);
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(roleId);
+    return acc;
+}, {});
+
+const isJobActive = (status) => status === true || status === 'true' || status === 'Open' || status === 'Active';
+
+const parseViewTimestamp = (eventId) => {
+    const match = String(eventId || '').match(/^VIEW-(\d+)/);
+    if (!match) return Number.NaN;
+    return Number.parseInt(match[1], 10);
+};
+
+const applicantMatchesJob = (applicant, job) => {
+    const applicantPosition = normalizeText(applicant.position_applied);
+    const jobTitle = normalizeText(job.job_title);
+    if (!applicantPosition || !jobTitle) return false;
+
+    const applicantAsTitle = normalizeText(ROLE_ID_TO_TITLE[applicantPosition]);
+    const possibleRoleIdsForTitle = TITLE_TO_ROLE_IDS[jobTitle] || [];
+
+    const positionMatches =
+        applicantPosition === jobTitle ||
+        applicantAsTitle === jobTitle ||
+        possibleRoleIdsForTitle.includes(applicantPosition);
+
+    if (!positionMatches) return false;
+
+    const applicantBranch = normalizeText(applicant.branch);
+    const jobBranch = normalizeText(job.branch);
+
+    if (applicantBranch && jobBranch) return applicantBranch === jobBranch;
+    return true;
+};
+
+const buildJobPostingsSnapshot = async () => {
+    const { data: jobs, error: jobsError } = await supabase
+        .from('jobpostings')
+        .select('*')
+        .order('date_posted', { ascending: false });
+    if (jobsError) throw jobsError;
+
+    const { data: applicants, error: applicantsError } = await supabase
+        .from('applicant')
+        .select('applicant_no, position_applied, branch');
+    if (applicantsError) throw applicantsError;
+
+    const { data: viewEvents, error: viewEventsError } = await supabase
+        .from('status')
+        .select('applicant_no')
+        .like('applicant_no', 'VIEW-%');
+    if (viewEventsError) throw viewEventsError;
+
+    const jobsWithCounts = (jobs || []).map((job) => {
+        const applicantCount = (applicants || []).filter((applicant) => applicantMatchesJob(applicant, job)).length;
+        return {
+            ...job,
+            total_applicants: applicantCount
+        };
+    });
+
+    const activeJobPosts = jobsWithCounts.filter((job) => isJobActive(job.job_status)).length;
+    const totalApplications = jobsWithCounts.reduce((sum, job) => sum + (job.total_applicants || 0), 0);
+
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1).getTime();
+
+    const viewsThisMonth = (viewEvents || []).reduce((count, event) => {
+        const ts = parseViewTimestamp(event.applicant_no);
+        if (Number.isNaN(ts)) return count;
+        if (ts >= monthStart && ts < nextMonthStart) return count + 1;
+        return count;
+    }, 0);
+
+    return {
+        summary: {
+            activeJobPosts,
+            totalApplications,
+            viewsThisMonth
+        },
+        jobs: jobsWithCounts
+    };
+};
+
 const getPeriodConfig = ({ reportType, month, quarter, year }) => {
     const now = new Date();
     const currentYear = now.getFullYear();
@@ -114,9 +215,142 @@ exports.testDb = async (req, res) => {
 // 2. Get Jobs
 exports.getJobs = async (req, res) => {
     try {
-        const { data, error } = await supabase.from('jobpostings').select('*');
+        const snapshot = await buildJobPostingsSnapshot();
+        res.json(snapshot.jobs);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// 2b. Get Job Postings Dashboard Data
+exports.getJobPostingsDashboard = async (req, res) => {
+    try {
+        const snapshot = await buildJobPostingsSnapshot();
+        res.json(snapshot);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// 2c. Record a Job View Event
+exports.recordJobView = async (req, res) => {
+    const { roleId, branch } = req.body || {};
+    if (!roleId) {
+        return res.status(400).json({ error: 'roleId is required' });
+    }
+
+    try {
+        const timestamp = Date.now();
+        const eventId = `VIEW-${timestamp}-${Math.random().toString(36).slice(2, 8)}`;
+        const payload = `JOB_VIEW|role=${String(roleId)}|branch=${String(branch || '')}`;
+
+        const { error } = await supabase
+            .from('status')
+            .insert([{
+                applicant_no: eventId,
+                applicant_name: payload,
+                applied: 0,
+                interview: 0,
+                hired: 0,
+                rejected: 0
+            }]);
+
         if (error) throw error;
-        res.json(data);
+
+        res.status(201).json({ message: 'Job view recorded' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// 2d. Create Job Posting
+exports.createJobPosting = async (req, res) => {
+    const { job_title, department, contract_type, branch } = req.body || {};
+
+    if (!job_title || !department || !contract_type || !branch) {
+        return res.status(400).json({ error: 'job_title, department, contract_type, and branch are required' });
+    }
+
+    try {
+        const payload = {
+            job_title: String(job_title).trim(),
+            department: String(department).trim(),
+            contract_type: String(contract_type).trim(),
+            branch: String(branch).trim(),
+            date_posted: new Date().toISOString().slice(0, 10),
+            job_status: true,
+            total_applicants: 0
+        };
+
+        const { data, error } = await supabase
+            .from('jobpostings')
+            .insert([payload])
+            .select()
+            .single();
+
+        if (error) throw error;
+        res.status(201).json({ message: 'Job posting created successfully', job: data });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// 2e. Update Job Posting
+exports.updateJobPosting = async (req, res) => {
+    const { id } = req.params;
+    const { department, contract_type } = req.body || {};
+
+    try {
+        const payload = {};
+        if (department !== undefined) payload.department = department;
+        if (contract_type !== undefined) payload.contract_type = contract_type;
+
+        const { data, error } = await supabase
+            .from('jobpostings')
+            .update(payload)
+            .eq('job_id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+        res.json({ message: 'Job posting updated successfully', job: data });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// 2f. Update Job Status
+exports.updateJobStatus = async (req, res) => {
+    const { id } = req.params;
+    const { job_status } = req.body || {};
+
+    try {
+        const { data, error } = await supabase
+            .from('jobpostings')
+            .update({ job_status: Boolean(job_status) })
+            .eq('job_id', id)
+            .select()
+            .single();
+
+        if (error) throw error;
+        res.json({ message: 'Job status updated successfully', job: data });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+// 2g. Delete Job Posting
+exports.deleteJobPosting = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const { error } = await supabase
+            .from('jobpostings')
+            .delete()
+            .eq('job_id', id);
+
+        if (error) throw error;
+        res.json({ message: 'Job posting deleted successfully' });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

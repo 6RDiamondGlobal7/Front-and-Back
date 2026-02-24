@@ -21,6 +21,24 @@ router.get('/test-db', applicationController.testDb);
 // GET /api/jobs
 router.get('/jobs', applicationController.getJobs);
 
+// GET /api/job-postings/dashboard
+router.get('/job-postings/dashboard', applicationController.getJobPostingsDashboard);
+
+// POST /api/job-views
+router.post('/job-views', applicationController.recordJobView);
+
+// POST /api/jobs
+router.post('/jobs', applicationController.createJobPosting);
+
+// PUT /api/jobs/:id
+router.put('/jobs/:id', applicationController.updateJobPosting);
+
+// PATCH /api/jobs/:id/status
+router.patch('/jobs/:id/status', applicationController.updateJobStatus);
+
+// DELETE /api/jobs/:id
+router.delete('/jobs/:id', applicationController.deleteJobPosting);
+
 // GET /api/applicants
 router.get('/applicants', applicationController.getApplicants);
 

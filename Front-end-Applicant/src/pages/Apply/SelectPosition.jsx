@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import './ApplicationForm.css';
+import { getApiBaseUrl } from '../../config/api';
 
 // --- ICONS ---
 const IconArrowRight = () => ( <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg> );
@@ -24,6 +25,7 @@ const ROLES_DATA = [
 const SelectPosition = () => {
   const navigate = useNavigate();
   const { branch } = useParams();
+  const API_BASE_URL = getApiBaseUrl();
   
   const [availableJobTitles, setAvailableJobTitles] = useState([]); 
   const [loading, setLoading] = useState(true);
@@ -44,25 +46,31 @@ const SelectPosition = () => {
   useEffect(() => {
     const fetchJobs = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/api/jobs');
+        const response = await axios.get(`${API_BASE_URL}/api/jobs`);
+        const jobs = Array.isArray(response.data) ? response.data : [];
+        const branchKey = String(branch || '').toLowerCase();
         
         // Filter jobs based on Branch AND Status
-        const branchJobs = response.data.filter(job => {
+        const branchJobs = jobs.filter((job) => {
+            const locationText = String(job?.location || '').toLowerCase();
+            const branchText = String(job?.branch || '').toLowerCase();
+            const matchesBranch = locationText.includes(branchKey) || branchText.includes(branchKey);
+
             // 1. Check Location Match
-            const matchesBranch = job.location?.toLowerCase().includes(branch.toLowerCase()) || 
-                                  job.branch?.toLowerCase().includes(branch.toLowerCase());
-            
             // 2. Check Status Match
             const isOpen = isJobActive(job.job_status);
 
             return matchesBranch && isOpen;
         });
 
-        const titles = branchJobs.map(job => job.job_title.trim());
+        const titles = branchJobs
+          .map((job) => String(job?.job_title || '').trim())
+          .filter(Boolean);
         setAvailableJobTitles(titles);
         
       } catch (err) {
         console.error("Error fetching jobs:", err);
+        setAvailableJobTitles([]);
       } finally {
         setLoading(false);
       }
@@ -71,7 +79,7 @@ const SelectPosition = () => {
     if (branch) {
         fetchJobs();
     }
-  }, [branch]);
+  }, [branch, API_BASE_URL]);
 
   const handleBack = () => {
     navigate('/apply/branch');
@@ -83,8 +91,17 @@ const SelectPosition = () => {
     }
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (selectedRole) {
+      try {
+        await axios.post(`${API_BASE_URL}/api/job-views`, {
+          roleId: selectedRole,
+          branch
+        });
+      } catch (err) {
+        console.error('Failed to record job view:', err);
+      }
+
       navigate(`/apply/${branch}/${selectedRole}`);
     }
   };

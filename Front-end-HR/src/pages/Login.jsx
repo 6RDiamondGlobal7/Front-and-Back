@@ -31,7 +31,7 @@ const Login = ({ onLogin }) => {
         body: JSON.stringify({ employeeId, password }),
       });
 
-      const data = await response.json();rm -rf .git
+      const data = await response.json();
 
       if (response.ok) {
         // Success

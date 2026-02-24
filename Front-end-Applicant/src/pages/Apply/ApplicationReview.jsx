@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import './ApplicationForm.css';
+import { getApiBaseUrl } from '../../config/api';
 
 // --- ICONS ---
 const IconFileBlue = () => ( <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4A90E2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg> );
@@ -16,6 +17,7 @@ const ApplicationReview = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { branch, roleId } = useParams();
+  const API_BASE_URL = getApiBaseUrl();
   
   const formData = location.state || {};
 
@@ -97,7 +99,7 @@ const ApplicationReview = () => {
 
     try {
         // 4. Send using Axios (It automatically handles the Multipart header)
-        const response = await axios.post('http://localhost:5000/api/apply', dataToSend);
+        const response = await axios.post(`${API_BASE_URL}/api/apply`, dataToSend);
 
         if (response.status === 201) {
             console.log("Success! Applicant ID:", response.data.applicantId);
@@ -139,9 +141,26 @@ const ApplicationReview = () => {
         <div className="af-review-section-card">
             <h3 className="af-section-title"><span className="af-dot">•</span> Personal Information</h3>
             <div className="af-review-grid-inner">
-                <div className="af-review-item"><label className="af-review-label-bold">NAME</label><span>{formData.firstName} {formData.lastName}</span></div>
-                <div className="af-review-item"><label className="af-review-label-bold">EMAIL</label><span>{formData.email}</span></div>
-                <div className="af-review-item"><label className="af-review-label-bold">PHONE</label><span>{formData.contactNumber}</span></div>
+                <div className="af-review-item"><label className="af-review-label-bold">NAME</label><span>{formData.firstName || 'N/A'} {formData.lastName || ''}</span></div>
+                <div className="af-review-item"><label className="af-review-label-bold">MIDDLE INITIAL</label><span>{formData.middleInitial || 'N/A'}</span></div>
+                <div className="af-review-item"><label className="af-review-label-bold">SUFFIX</label><span>{formData.suffix || 'N/A'}</span></div>
+                <div className="af-review-item"><label className="af-review-label-bold">NATIONALITY</label><span>{formData.nationality || 'N/A'}</span></div>
+                <div className="af-review-item"><label className="af-review-label-bold">BIRTHDAY</label><span>{formData.birthday || 'N/A'}</span></div>
+                <div className="af-review-item"><label className="af-review-label-bold">AGE</label><span>{formData.age || 'N/A'}</span></div>
+                <div className="af-review-item"><label className="af-review-label-bold">EMAIL</label><span>{formData.email || 'N/A'}</span></div>
+                <div className="af-review-item"><label className="af-review-label-bold">PHONE</label><span>{formData.contactNumber || 'N/A'}</span></div>
+            </div>
+        </div>
+
+        {/* ADDRESS */}
+        <div className="af-review-section-card">
+            <h3 className="af-section-title"><span className="af-dot">•</span> Address</h3>
+            <div className="af-review-grid-inner">
+                <div className="af-review-item"><label className="af-review-label-bold">REGION</label><span>{formData.region || 'N/A'}</span></div>
+                <div className="af-review-item"><label className="af-review-label-bold">PROVINCE</label><span>{formData.province || 'N/A'}</span></div>
+                <div className="af-review-item"><label className="af-review-label-bold">CITY / MUNICIPALITY</label><span>{formData.city || 'N/A'}</span></div>
+                <div className="af-review-item"><label className="af-review-label-bold">BARANGAY</label><span>{formData.barangay || 'N/A'}</span></div>
+                <div className="af-review-item"><label className="af-review-label-bold">DETAILED ADDRESS</label><span>{formData.detailedAddress || 'N/A'}</span></div>
             </div>
         </div>
 
@@ -202,7 +221,53 @@ const ApplicationReview = () => {
         </div>
       )}
 
-       {showSample && <div className="af-modal-overlay"><button onClick={() => setShowSample(false)}>Close</button></div>}
+      {showSample && (
+        <div className="af-modal-overlay">
+          <div className="af-modal-content">
+            <button className="af-modal-close" onClick={() => setShowSample(false)}><IconClose /></button>
+            <h2 className="af-modal-title">Sample Complete Application</h2>
+            <p className="af-modal-subtitle">Use this as a guide to fill out your application correctly</p>
+            <div className="af-modal-scroll">
+              <div className="af-sample-section af-sample-section-blue">
+                <h4 className="af-sample-header" style={{ color: '#1A242F' }}>• Personal Information</h4>
+                <div className="af-grid sample-grid">
+                  <div className="af-sample-field"><label>First Name</label><div className="af-input sample">Juan</div></div>
+                  <div className="af-sample-field"><label>Last Name</label><div className="af-input sample">Dela Cruz</div></div>
+                  <div className="af-sample-field"><label>Middle Initial</label><div className="af-input sample">P</div></div>
+                  <div className="af-sample-field"><label>Nationality</label><div className="af-input sample">Filipino</div></div>
+                  <div className="af-sample-field"><label>Birthday</label><div className="af-input sample">01/15/1995</div></div>
+                  <div className="af-sample-field"><label>Age</label><div className="af-input sample">30</div></div>
+                  <div className="af-sample-field"><label>Email Address</label><div className="af-input sample">juan.delacruz@email.com</div></div>
+                  <div className="af-sample-field"><label>Contact Number</label><div className="af-input sample">09171234567</div></div>
+                </div>
+              </div>
+              <div className="af-sample-section af-sample-section-green">
+                <h4 className="af-sample-header" style={{ color: '#15803d' }}>• Address</h4>
+                <div className="af-grid sample-grid">
+                  <div className="af-sample-field"><label>Region</label><div className="af-input sample">NCR - National Capital Region</div></div>
+                  <div className="af-sample-field"><label>Province</label><div className="af-input sample">Metro Manila</div></div>
+                  <div className="af-sample-field"><label>City/Municipality</label><div className="af-input sample">Quezon City</div></div>
+                  <div className="af-sample-field"><label>Barangay</label><div className="af-input sample">Commonwealth</div></div>
+                  <div className="af-sample-field full-width"><label>Detailed Address (House No., Street, Subdivision)</label><div className="af-input sample">123 Sampaguita Street, Villa Esperanza Subdivision</div></div>
+                </div>
+              </div>
+              <div className="af-sample-section af-sample-section-yellow">
+                <h4 className="af-sample-header" style={{ color: '#1A242F' }}>• Required Documents</h4>
+                <div className="af-sample-field"><label>Resume/CV (PDF format)</label><div className="af-input sample file-look"><IconFile /> Juan_DelaCruz_Resume.pdf</div></div>
+                <div className="af-sample-field"><label>PRC ID (Front & Back - PDF/Image)</label><div className="af-input sample file-look"><IconFile /> Juan_DelaCruz_PRCID.pdf</div></div>
+                <div className="af-sample-field"><label>Cover Letter (Optional - PDF format)</label><div className="af-input sample file-look"><IconFile /> Juan_DelaCruz_CoverLetter.pdf</div></div>
+              </div>
+              <div className="af-sample-section af-sample-section-purple">
+                <h4 className="af-sample-header" style={{ color: '#1A242F' }}>• Medical Condition Declaration</h4>
+                <p style={{ fontSize: '13px', color: '#475569', marginBottom: '8px' }}>Do you have any medical condition that may affect your work performance?</p>
+                <div className="af-med-sample-row"><div className="af-med-radio"><span>○</span> Yes</div><div className="af-med-radio selected"><span>●</span> No</div></div>
+                <p style={{ fontSize: '11px', fontStyle: 'italic', color: '#64748b', marginTop: '8px' }}>* If \"Yes\", please specify your condition in the text box that will appear</p>
+              </div>
+            </div>
+            <div className="af-modal-footer"><strong>Note:</strong> Make sure all information is accurate and complete before submitting your application.</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
