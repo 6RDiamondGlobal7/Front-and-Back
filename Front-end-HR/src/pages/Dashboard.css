@@ -1,0 +1,128 @@
+.dashboard-wrapper {
+  display: flex;
+  height: 100vh;
+  background-color: #f0f7ff; 
+}
+
+/* Sidebar Styling */
+.sidebar {
+  width: 260px;
+  background: white;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 20px 0;
+  border-right: 1px solid #e0e6ed;
+}
+
+.logo-container { padding: 0 20px 30px; }
+.sidebar-logo { width: 180px; }
+
+.nav-menu { display: flex; flex-direction: column; padding: 0 10px; }
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 15px;
+  border: none;
+  background: transparent;
+  color: #64748b; /* Desaturated gray for icons and text */
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 8px;
+  margin-bottom: 5px;
+  transition: all 0.2s;
+}
+
+.nav-item.active {
+  background-color: #5d9cec; 
+  color: white;
+}
+
+.nav-item:hover:not(.active) {
+  background-color: #f8fafc;
+  color: #1e293b;
+}
+
+.nav-icon { 
+  margin-right: 12px; 
+  /* Icons will inherit the color of the parent .nav-item */
+}
+
+.logout-button {
+  margin: 0 15px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  color: #64748b;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.logout-button:hover {
+  background-color: #fff1f0;
+  border-color: #ffa39e;
+  color: #cf1322;
+}
+
+/* Header & Content Styling - ENLARGED as requested */
+.main-section { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+.dashboard-header {
+  background: white;
+  padding: 25px 40px; /* Increased padding from 15px 30px to make it bigger/welcoming */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e0e6ed;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.header-titles h1 { 
+  font-size: 1.5rem; /* Increased from 1.25rem */
+  color: #1a2b4b; 
+  margin-bottom: 4px; 
+  font-weight: 800;
+}
+
+.header-titles p { 
+  font-size: 0.95rem; /* Increased from 0.85rem */
+  color: #64748b; 
+  letter-spacing: 0.5px;
+}
+
+.user-info { display: flex; align-items: center; gap: 15px; }
+.user-text { text-align: right; }
+.user-name { display: block; font-weight: 700; font-size: 1rem; color: #1a2b4b; }
+.user-role { font-size: 0.8rem; color: #64748b; }
+
+.user-badge {
+  background: #5d9cec;
+  color: white;
+  width: 45px; /* Increased from 35px */
+  height: 45px; /* Increased from 35px */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.content-body { padding: 30px; overflow-y: auto; flex: 1; }
+
+/* Modal specific styles */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 100;
+}
+.modal-content { background: white; padding: 30px; border-radius: 12px; width: 400px; text-align: center; }
+.modal-buttons { margin-top: 20px; display: flex; gap: 10px; justify-content: center; }
+.btn-cancel { padding: 10px 20px; border: none; background: #edf2f7; border-radius: 6px; cursor: pointer; }
+.btn-logout { padding: 10px 20px; border: none; background: #f56565; color: white; border-radius: 6px; cursor: pointer; }

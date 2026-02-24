@@ -1,0 +1,261 @@
+.jobs-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  color: #2d3748;
+}
+
+/* Header */
+.header-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.title-icon-box {
+  background: white;
+  width: 45px;
+  height: 45px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 1.4rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.title-text h2 { font-size: 1.4rem; margin: 0; }
+.title-text p { font-size: 0.9rem; color: #718096; margin: 2px 0 0; }
+
+/* Stats Cards */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.stat-card {
+  background: white;
+  padding: 25px;
+  border-radius: 15px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.02);
+}
+
+.stat-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+}
+
+.stat-info { display: flex; flex-direction: column; }
+.stat-label { font-size: 0.85rem; color: #718096; font-weight: 500; }
+.stat-value { font-size: 1.8rem; font-weight: 800; }
+
+/* Filter Row */
+.filters-container {
+  background: white;
+  padding: 15px 20px;
+  border-radius: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 10px 15px;
+  border-radius: 8px;
+  width: 300px;
+}
+
+.search-box input {
+  border: none;
+  background: transparent;
+  margin-left: 10px;
+  outline: none;
+  width: 100%;
+}
+
+.filter-dropdowns { display: flex; gap: 12px; align-items: center; }
+
+.filter-select {
+  padding: 10px 15px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  color: #4a5568;
+  font-size: 0.9rem;
+}
+
+.add-new-btn {
+  background: #5d9cec;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Table */
+.table-card {
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+  overflow: hidden;
+}
+
+.jobs-table { width: 100%; border-collapse: collapse; }
+.jobs-table th {
+  background: #f8fafc;
+  padding: 15px 20px;
+  text-align: left;
+  font-size: 0.75rem;
+  color: #718096;
+  border-bottom: 1px solid #edf2f7;
+}
+
+.jobs-table td { padding: 18px 20px; border-bottom: 1px solid #f7fafc; font-size: 0.85rem; }
+.bold-text { font-weight: 700; color: #2d3748; }
+
+.type-badge {
+  background: #eef2ff;
+  color: #5d9cec;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.status-toggle-group {
+  display: flex;
+  background: #f1f5f9;
+  padding: 3px;
+  border-radius: 6px;
+  width: fit-content;
+}
+
+.status-toggle {
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.status-toggle.active { background: #e6fff0; color: #2ecc71; }
+.status-toggle.muted { color: #94a3b8; }
+
+.dots-btn {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+/* Pagination Footer */
+.table-footer {
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid #edf2f7;
+}
+
+.pagination-info { font-size: 0.85rem; color: #718096; }
+.pagination-controls { display: flex; gap: 5px; }
+
+.page-btn {
+  padding: 6px 12px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.page-btn.active { background: #5d9cec; color: white; border-color: #5d9cec; }
+
+/* Action Dropdown Fixes */
+.action-cell { position: relative; }
+
+.action-dropdown {
+  position: absolute;
+  right: 20px;
+  top: 45px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  z-index: 1000;
+  width: 190px;
+  padding: 8px;
+  border: 1px solid #edf2f7;
+}
+
+.drop-item {
+  width: 100%;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: none;
+  background: none;
+  font-size: 0.9rem;
+  color: #4a5568;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.drop-item:hover { background: #f8fafc; color: #5d9cec; }
+.drop-icon { font-size: 1rem; }
+.drop-item.warning { color: #f6ad55; }
+.drop-item.delete { color: #f56565; }
+.drop-divider { height: 1px; background: #edf2f7; margin: 6px 0; }
+
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.4); display: flex; 
+  align-items: center; justify-content: center; z-index: 2000;
+}
+
+/* Edit Modal Box */
+.modal-content-box { background: white; width: 450px; border-radius: 16px; overflow: hidden; }
+.modal-header { padding: 20px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+.close-x { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #a0aec0; }
+.modal-body { padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+.form-group label { display: block; font-size: 0.8rem; font-weight: 700; margin-bottom: 8px; }
+.form-group input, .form-group select { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; }
+
+/* Confirm Boxes (Close/Delete) */
+.confirm-box { background: white; width: 400px; padding: 30px; border-radius: 16px; text-align: center; }
+.confirm-icon { width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 2rem; }
+.confirm-icon.orange { background: #fff5eb; color: #ff7a00; }
+.confirm-icon.red { background: #fff5f5; color: #f56565; }
+.confirm-footer { display: flex; gap: 12px; margin-top: 25px; }
+.confirm-footer button { flex: 1; padding: 12px; border-radius: 10px; font-weight: 600; cursor: pointer; }
+
+/* Generic Buttons */
+.modal-footer { padding: 20px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 12px; }
+.btn-primary { background: #5d9cec; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+.btn-secondary { background: white; border: 1px solid #e2e8f0; padding: 10px 20px; border-radius: 8px; color: #4a5568; cursor: pointer; }
+.btn-orange { background: #ff7a00; color: white; border: none; }
+.btn-danger { background: #f56565; color: white; border: none; }
+
+/* Add this to your CSS file */
+.status-toggle.closed-active { 
+    background: #fff5f5; 
+    color: #f56565; 
+}
