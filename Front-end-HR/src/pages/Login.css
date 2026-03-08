@@ -1,0 +1,254 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  /* Matching the soft blue gradient in background */
+  background: linear-gradient(135deg, #e9f2ff 0%, #d3e2fa 50%, #e9f2ff 100%);
+  gap: 150px;
+  font-family: 'Inter', sans-serif;
+}
+
+/* Left Section */
+.login-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 30px;
+}
+
+.logo-card {
+  background: white;
+  padding: 40px 50px;
+  border-radius: 15px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 4px 15px rgba(75, 79, 83, 0.3);
+}
+
+.login-logo {
+  width: 450px; /* Adjusted based on visual scale */
+  height: auto;
+}
+
+.portal-label {
+  background: #5a9ced;
+  color: white;
+  padding: 12px 45px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 22px;
+  box-shadow: 0 4px 15px rgba(90, 156, 237, 0.8);
+}
+
+/* Right Section - Login Card */
+.login-card {
+  background: white;
+  padding: 45px 50px;
+  border-radius: 20px;
+  width: 480px;
+  box-shadow: 0 4px 15px rgba(75, 79, 83, 0.4);
+}
+
+.login-card h2 {
+  margin-top: 0;
+  margin-bottom: 40px;
+  font-size: 1.8rem;
+  color: #0d1b3e;
+  font-weight: 800;
+}
+
+/* Inputs */
+.input-group {
+  margin-bottom: 25px;
+}
+
+.input-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #4a5568;
+}
+
+.input-wrapper {
+  display: flex;
+  align-items: center;
+  border: 1px solid #edf2f7;
+  border-radius: 8px;
+  padding: 12px 15px;
+  background: #f8fafc;
+}
+
+.input-wrapper input {
+  border: none;
+  background: transparent;
+  outline: none;
+  width: 100%;
+  font-size: 0.95rem;
+  color: #2d3748;
+}
+
+.input-wrapper input::placeholder {
+  color: #adbbc9;
+}
+
+/* Improve input focus visibility */
+.input-wrapper:focus-within {
+  border-color: #5a9ced;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(90, 156, 237, 0.1);
+}
+
+.icon-prefix {
+  color: #adbbc9;
+  margin-right: 10px;
+  font-weight: bold;
+}
+
+.icon-suffix {
+  color: #cbd5e0;
+  cursor: pointer;
+  font-size: 1.1rem;
+}
+
+/* Options */
+.login-options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  font-size: 0.85rem;
+}
+
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #4a5568;
+  cursor: pointer;
+}
+
+.forgot-link {
+  color: #4b86cf;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+/* Button */
+.login-btn {
+  width: 100%;
+  padding: 16px;
+  background: #f3b03c; /* The yellow/orange from image */
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 19px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.login-btn:hover {
+  background: #f1a82a;
+}
+
+/* Ensure the login button shows a disabled state during "loading" */
+.login-btn:disabled {
+  background: #f1a82a;
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+/* Warning Box */
+.auth-warning {
+  margin-top: 35px;
+  background: #fdf6df;
+  border: 1px solid #ed88366c;
+  padding: 15px;
+  border-radius: 12px;
+  display: flex;
+  gap: 12px;
+}
+
+.warning-circle {
+  width: 22px;
+  height: 22px;
+  border: 2px solid #e78529;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #e78529;
+  font-weight: 1px;
+  font-size: 14px;
+  margin-top: 2px;
+}
+
+.warning-content strong {
+  display: block;
+  font-size: 0.85rem;
+  color: #2d3748;
+  margin-bottom: 6px;
+}
+
+.warning-content p {
+  margin: 0;
+  font-size: 12px;
+  color: #69788d;
+  line-height: 1.4;
+}
+
+/* The main error container */
+.error-notif {
+  /* Soft pink background */
+  background-color: #fff1f0;
+  /* Slightly darker pink border */
+  border: 1px solid #ffccc7;
+  /* Dark red text color */
+  color: #8a2a2a;
+  padding: 12px 20px;
+  /* Makes it a fully rounded "pill" shape */
+  border-radius: 10px;
+  margin-bottom: 25px;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  /* Optional: Adds a subtle shadow for depth */
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+/* The SVG icon itself */
+.error-icon {
+  /* Ensures the SVG inherits the dark red text color for its stroke */
+  color: #8a2a2a;
+  flex-shrink: 0; /* Prevents the icon from squishing */
+}
+
+.toggle-password {
+  background: transparent;
+  border: none;
+  /* This color matches the muted gray-blue in your 3rd image */
+  color: #94a3b8; 
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 0 5px;
+  transition: color 0.2s ease;
+}
+
+.toggle-password:hover {
+  /* Slightly darker on hover for feedback */
+  color: #64748b; 
+}
+
+/* Ensure the icon doesn't shrink */
+.toggle-password svg {
+  flex-shrink: 0;
+}

@@ -1,0 +1,214 @@
+/* === PAGE LAYOUT === */
+.sb-page-container {
+  min-height: 100vh;
+  width: 100%;
+  background: radial-gradient(circle at 10% 10%, #EBF4FF 0%, #F5F9FF 50%, #E0F2FE 100%);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Background Glows */
+.sb-page-container::before {
+  content: '';
+  position: absolute;
+  top: -15%;
+  left: -10%;
+  width: 60vw;
+  height: 60vw;
+  background: radial-gradient(circle, rgba(74, 144, 226, 0.12) 0%, rgba(255, 255, 255, 0) 60%);
+  border-radius: 50%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.sb-page-container::after {
+  content: '';
+  position: absolute;
+  bottom: -15%;
+  right: -10%;
+  width: 55vw;
+  height: 55vw;
+  background: radial-gradient(circle, rgba(255, 184, 28, 0.1) 0%, rgba(255, 255, 255, 0) 60%);
+  border-radius: 50%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* === BACK BUTTON === */
+.sb-back-btn {
+  z-index: 50;
+  position: fixed;
+  top: 32px;
+  left: 32px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #e2e8f0;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.sb-back-btn:hover {
+  background: white;
+  color: #1A242F;
+  transform: translateY(-2px);
+}
+
+/* === MAIN CARD === */
+.sb-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  width: 100%;
+  max-width: 900px;
+  padding: 64px;
+  border-radius: 40px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  z-index: 10;
+}
+
+.sb-title {
+  font-size: 42px;
+  font-weight: 800;
+  color: #1A242F;
+  margin: 0 0 16px 0;
+  letter-spacing: -0.5px;
+}
+
+.sb-subtitle {
+  font-size: 22px;
+  color: #64748b;
+  margin: 0 0 48px 0;
+  font-weight: 400;
+}
+
+/* === BRANCH GRID === */
+.sb-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  width: 100%;
+  margin-bottom: 48px;
+}
+
+.sb-option {
+  background: white;
+  border: 2px solid #e2e8f0;
+  border-radius: 24px;
+  padding: 40px 20px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* --- ITO ANG BINAGO: BLUE HOVER EFFECT --- */
+.sb-option:hover {
+  border-color: #4A90E2; /* Mas matingkad na blue */
+  background-color: #F0F9FF; /* Light blue na background */
+  transform: translateY(-6px);
+  box-shadow: 0 12px 24px -6px rgba(74, 144, 226, 0.15);
+}
+
+/* Selected State (Yellow/Gold) */
+.sb-option.selected {
+  border-color: #FFB81C;
+  background-color: #FFFBEB;
+  transform: translateY(-6px);
+  box-shadow: 0 12px 24px -6px rgba(255, 184, 28, 0.25);
+}
+
+.sb-label {
+  font-size: 25px;
+  font-weight: 700;
+  color: #64748b;
+  transition: color 0.2s;
+}
+
+.sb-option:hover .sb-label {
+  color: #4A90E2;
+}
+
+.sb-option.selected .sb-label {
+  color: #1A242F;
+}
+
+.sb-icon-wrapper {
+  color: #94a3b8;
+  width: 40px;
+  height: 40px;
+  transition: all 0.2s;
+}
+
+.sb-option:hover .sb-icon-wrapper {
+  color: #4A90E2;
+  transform: scale(1.1);
+}
+
+.sb-option.selected .sb-icon-wrapper {
+  color: #FFB81C;
+  transform: scale(1.1);
+}
+
+/* === NEXT BUTTON === */
+.sb-next-btn {
+  background: #FFB81C;
+  color: #1A242F;
+  font-size: 18px;
+  font-weight: 800;
+  padding: 18px 48px;
+  border-radius: 16px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(255, 184, 28, 0.3);
+}
+
+.sb-next-btn:hover {
+  background-color: #e6a518;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(255, 184, 28, 0.4);
+}
+
+.sb-next-btn:disabled {
+  background-color: #f1f5f9;
+  color: #cbd5e1;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+@media (max-width: 768px) {
+  .sb-grid {
+    grid-template-columns: 1fr;
+  }
+  .sb-card {
+    padding: 32px 24px;
+  }
+  .sb-title {
+    font-size: 32px;
+  }
+}
