@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { getApiBaseUrl } from '../config/api'; // <-- IDAGDAG MO ITO
 import './Login.css';
+import logoImg from '../assets/logo.png';
 
 const Login = ({ onLogin }) => {
   const [employeeId, setEmployeeId] = useState('');
@@ -53,7 +54,7 @@ const Login = ({ onLogin }) => {
     <div className="login-container">
       <div className="login-left">
         <div className="logo-card">
-          <img src="src/assets/logo.png" alt="6R Diamond Logo" className="login-logo" />
+          <img src={logoImg} alt="6R Diamond Logo" className="login-logo" />
         </div>
         <div className="portal-label">HR Management Portal</div>
       </div>

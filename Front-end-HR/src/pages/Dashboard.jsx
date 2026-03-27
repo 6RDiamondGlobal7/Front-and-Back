@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import logoImg from '../assets/logo.png';
 import { 
   LayoutDashboard, 
   Users, 
@@ -23,7 +24,7 @@ const Dashboard = ({ onLogout }) => {
       <aside className="sidebar">
         <div className="sidebar-top">
           <div className="logo-container">
-            <img src="src/assets/logo.png" alt="6R Diamond Logo" className="sidebar-logo" />
+            <img src={logoImg} alt="6R Diamond Logo" className="sidebar-logo" />cd
           </div>
           <nav className="nav-menu">
             <button 

@@ -7,6 +7,13 @@ export const getApiBaseUrl = () => {
   if (typeof window !== 'undefined') {
     const { protocol, hostname } = window.location;
     
+    // --- NEW: Check if running as a Desktop App (Electron) ---
+    if (protocol === 'file:') {
+      // NOTE: If you eventually host your backend on the internet (e.g., Render), 
+      // replace this with your real live URL like 'https://my-backend.onrender.com'
+      return 'http://localhost:5000'; 
+    }
+
     // Para sa DevTunnels (VS Code Port Forwarding)
     const tunnelPattern = /^([a-z0-9-]+)-\d+(\..*devtunnels\.ms)$/i;
     const match = hostname.match(tunnelPattern);
