@@ -1,37 +1,50 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import {
-  ChevronLeft, ChevronRight, Eye, Download, ChevronDown,
-  Search, Mail, Phone, FileText, CheckCircle, X, XCircle // Added CheckCircle here
+  Briefcase,
+  CheckCircle,
+  ChevronsUpDown,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Eye,
+  FileText,
+  Mail,
+  MapPin,
+  Phone,
+  Search,
+  UsersRound,
+  X,
+  XCircle
 } from 'lucide-react';
 import './Applicants.css';
 import { getApiBaseUrl } from '../config/api';
+import ConfirmationModal from '../components/ConfirmationModal';
+import CustomSelect from '../components/CustomSelect';
 
 const Applicants = () => {
   const API_BASE_URL = getApiBaseUrl();
   const [applicants, setApplicants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedApplicant, setSelectedApplicant] = useState(null);
-
-  // Filters
   const [statusFilter, setStatusFilter] = useState('All');
   const [positionFilter, setPositionFilter] = useState('All Positions');
   const [branchFilter, setBranchFilter] = useState('All Branches');
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [statusUpdateLoading, setStatusUpdateLoading] = useState(false);
+  const [sortConfig, setSortConfig] = useState({ key: 'applicantNumber', direction: 'desc' });
   const itemsPerPage = 5;
 
-  // --- FORMATTING HELPERS ---
   const formatPosition = (id) => {
     if (!id || id === 'Not assigned' || id === 'Not specified') return id;
     const roles = {
       'corp-sec': 'Corporate Secretary',
       'licensed-broker': 'Licensed Customs Broker',
       'office-manager': 'Office Manager',
-      'messenger': 'Messenger / Logistics',
-      'secretary': 'Secretary to the Office Manager',
+      messenger: 'Messenger / Logistics',
+      secretary: 'Secretary to the Office Manager',
       'brokerage-specialist': 'Brokerage Specialist',
       'import-export-head': 'Import & Export Head',
       'admin-staff': 'Administration Staff'
@@ -44,19 +57,29 @@ const Applicants = () => {
     return text.charAt(0).toUpperCase() + text.slice(1);
   };
 
-  // --- FETCH DATA ---
+  const formatAppliedDate = (app) => {
+    const rawValue = app.created_at || app.application_date || app.date_applied || app.updated_at;
+    if (!rawValue) return 'N/A';
+
+    const date = new Date(rawValue);
+    if (Number.isNaN(date.getTime())) return rawValue;
+
+    return date.toLocaleDateString('en-US', {
+      month: '2-digit',
+      day: '2-digit',
+      year: 'numeric'
+    });
+  };
+
   const fetchApplicants = async () => {
     setLoading(true);
     try {
       const response = await axios.get(`${API_BASE_URL}/api/applicants`);
-
-      // Format the branch and position immediately upon receiving the data
       const formattedData = response.data.map((app) => ({
         ...app,
         branch: formatBranch(app.branch),
         position: formatPosition(app.position)
       }));
-
       setApplicants(formattedData);
     } catch (error) {
       console.error('Error fetching applicants:', error);
@@ -65,34 +88,37 @@ const Applicants = () => {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchApplicants();
   }, [API_BASE_URL]);
 
-  // --- HANDLE STATUS UPDATE ---
   const handleUpdateStatus = async (id, newStatus) => {
-    if (!window.confirm(`Are you sure you want to mark this applicant as ${newStatus}?`)) return;
-
+    setStatusUpdateLoading(true);
     try {
       await axios.put(`${API_BASE_URL}/api/applicants/${id}/status`, { status: newStatus });
       setApplicants((prev) => prev.map((app) => (
         app.id === id ? { ...app, status: newStatus } : app
       )));
       setSelectedApplicant(null);
+      setConfirmAction(null);
     } catch (error) {
       console.error('Error updating status:', error);
       alert('Failed to update status. Please try again.');
+    } finally {
+      setStatusUpdateLoading(false);
     }
   };
 
-  // --- FILTERS & PAGINATION ---
-  const positions = ['All Positions', ...new Set(applicants.map((item) => item.position))];
-  const branches = ['All Branches', ...new Set(applicants.map((item) => item.branch))];
+  const isSelectableFilterValue = (value) => (
+    Boolean(value) && value !== 'Not assigned' && value !== 'Not specified'
+  );
+
+  const positions = ['All Positions', ...new Set(applicants.map((item) => item.position).filter(isSelectableFilterValue))];
+  const branches = ['All Branches', ...new Set(applicants.map((item) => item.branch).filter(isSelectableFilterValue))];
 
   const filteredData = applicants.filter((app) => {
-    const appStatus = (app.status || '').toLowerCase();
-    const appName = (app.name || '').toLowerCase();
-    const appId = (app.id || '').toLowerCase();
+    const appStatus = String(app.status || '').toLowerCase();
+    const appName = String(app.name || '').toLowerCase();
+    const appId = String(app.id || '').toLowerCase();
     const matchesStatus = statusFilter === 'All' || appStatus === statusFilter.toLowerCase();
     const matchesPosition = positionFilter === 'All Positions' || app.position === positionFilter;
     const matchesBranch = branchFilter === 'All Branches' || app.branch === branchFilter;
@@ -101,10 +127,50 @@ const Applicants = () => {
     return matchesStatus && matchesPosition && matchesBranch && matchesSearch;
   });
 
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
-  const currentItems = filteredData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const sortedData = [...filteredData].sort((a, b) => {
+    const directionMultiplier = sortConfig.direction === 'asc' ? 1 : -1;
 
-  const updateStatus = (val) => { setStatusFilter(val); setCurrentPage(1); };
+    if (sortConfig.key === 'applicantNumber') {
+      return String(a.id || '').localeCompare(String(b.id || ''), undefined, { numeric: true }) * directionMultiplier;
+    }
+
+    if (sortConfig.key === 'name') {
+      return String(a.name || '').localeCompare(String(b.name || '')) * directionMultiplier;
+    }
+
+    if (sortConfig.key === 'appliedDate') {
+      const aRaw = a.created_at || a.application_date || a.date_applied || a.updated_at;
+      const bRaw = b.created_at || b.application_date || b.date_applied || b.updated_at;
+      const aTime = new Date(aRaw || 0).getTime();
+      const bTime = new Date(bRaw || 0).getTime();
+      const safeATime = Number.isNaN(aTime) ? 0 : aTime;
+      const safeBTime = Number.isNaN(bTime) ? 0 : bTime;
+      return (safeATime - safeBTime) * directionMultiplier;
+    }
+
+    return 0;
+  });
+
+  const totalPages = Math.ceil(sortedData.length / itemsPerPage);
+  const currentItems = sortedData.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const updateStatus = (value) => {
+    setStatusFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleSort = (key) => {
+    setSortConfig((current) => ({
+      key,
+      direction: current.key === key && current.direction === 'asc' ? 'desc' : 'asc'
+    }));
+    setCurrentPage(1);
+  };
+
+  const getSortLabel = (key, label) => {
+    if (sortConfig.key !== key) return `${label} unsorted`;
+    return `${label} sorted ${sortConfig.direction === 'asc' ? 'ascending' : 'descending'}`;
+  };
 
   const handleDownloadResume = (app) => {
     if (!app?.resume_url) {
@@ -114,19 +180,29 @@ const Applicants = () => {
     window.open(app.resume_url, '_blank', 'noopener,noreferrer');
   };
 
+  const openStatusConfirmation = (applicant, status) => {
+    setConfirmAction({
+      applicantId: applicant.id,
+      applicantName: applicant.name,
+      status
+    });
+  };
+
   return (
     <div className="applicants-container">
-      {/* HEADER */}
-      <div className="tab-title-area">
-        <div className="title-icon">👥</div>
-        <h2>Applicants</h2>
+      <div className="hr-page-heading">
+        <div className="hr-page-icon">
+          <UsersRound size={22} />
+        </div>
+        <div>
+          <h2>Applicants</h2>
+        </div>
       </div>
 
-      {/* TOP NAVIGATION TABS */}
       <div className="top-tabs-card">
         {['All', 'Applied', 'Interview', 'Hired', 'Rejected'].map((tab, index, array) => {
           const count = applicants.filter((a) => (
-            tab === 'All' ? true : (a.status || '').toLowerCase() === tab.toLowerCase()
+            tab === 'All' ? true : String(a.status || '').toLowerCase() === tab.toLowerCase()
           )).length;
 
           return (
@@ -135,7 +211,8 @@ const Applicants = () => {
                 className={`tab-btn ${statusFilter === tab ? 'active' : ''}`}
                 onClick={() => updateStatus(tab)}
               >
-                {tab} ({count})
+                {tab}
+                <span className="tab-count">({count})</span>
               </button>
               {index < array.length - 1 && <span className="tab-divider">|</span>}
             </React.Fragment>
@@ -143,44 +220,69 @@ const Applicants = () => {
         })}
       </div>
 
-      {/* FILTERS AREA */}
       <div className="filters-card">
         <div className="search-wrapper">
           <Search className="search-icon" size={18} />
           <input
             type="text"
-            placeholder="Search by name or ID..."
+            placeholder="Search by name or applicant number"
             className="search-input"
             value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
           />
         </div>
 
         <div className="select-wrapper">
-          <FileText className="select-left-icon" size={18} />
-          <select className="filter-select" value={positionFilter} onChange={(e) => { setPositionFilter(e.target.value); setCurrentPage(1); }}>
-            {positions.map((pos) => <option key={pos} value={pos}>{pos}</option>)}
-          </select>
-          <ChevronDown className="select-right-icon" size={18} />
+          <CustomSelect
+            icon={<Briefcase size={18} />}
+            options={positions}
+            value={positionFilter}
+            onChange={(nextValue) => {
+              setPositionFilter(nextValue);
+              setCurrentPage(1);
+            }}
+          />
         </div>
 
         <div className="select-wrapper">
-          <Search className="select-left-icon" size={18} />
-          <select className="filter-select" value={branchFilter} onChange={(e) => { setBranchFilter(e.target.value); setCurrentPage(1); }}>
-            {branches.map((branch) => <option key={branch} value={branch}>{branch}</option>)}
-          </select>
-          <ChevronDown className="select-right-icon" size={18} />
+          <CustomSelect
+            icon={<MapPin size={18} />}
+            options={branches}
+            value={branchFilter}
+            onChange={(nextValue) => {
+              setBranchFilter(nextValue);
+              setCurrentPage(1);
+            }}
+          />
         </div>
       </div>
 
-      {/* TABLE */}
       <div className="table-wrapper">
         <table className="applicants-table">
           <thead>
             <tr>
-              <th>Applicant #</th>
-              <th>Name</th>
-              <th>Contact Information</th>
+              <th>
+                <button type="button" className="sortable-header" onClick={() => handleSort('applicantNumber')} aria-label={getSortLabel('applicantNumber', 'Applicant Number')}>
+                  <span>Applicant Number</span>
+                  <ChevronsUpDown size={14} className={`sort-icon ${sortConfig.key === 'applicantNumber' ? 'active' : ''}`} />
+                </button>
+              </th>
+              <th>
+                <button type="button" className="sortable-header" onClick={() => handleSort('name')} aria-label={getSortLabel('name', 'Name')}>
+                  <span>Name</span>
+                  <ChevronsUpDown size={14} className={`sort-icon ${sortConfig.key === 'name' ? 'active' : ''}`} />
+                </button>
+              </th>
+              <th>Contact</th>
+              <th>
+                <button type="button" className="sortable-header" onClick={() => handleSort('appliedDate')} aria-label={getSortLabel('appliedDate', 'Applied Date')}>
+                  <span>Applied Date</span>
+                  <ChevronsUpDown size={14} className={`sort-icon ${sortConfig.key === 'appliedDate' ? 'active' : ''}`} />
+                </button>
+              </th>
               <th>Status</th>
               <th>Position</th>
               <th>Branch</th>
@@ -189,7 +291,7 @@ const Applicants = () => {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan="7" className="no-data">Loading applicants...</td></tr>
+              <tr><td colSpan="8" className="no-data">Loading applicants...</td></tr>
             ) : currentItems.length > 0 ? (
               currentItems.map((app) => (
                 <tr key={app.id}>
@@ -205,8 +307,9 @@ const Applicants = () => {
                       </div>
                     </div>
                   </td>
+                  <td>{formatAppliedDate(app)}</td>
                   <td>
-                    <span className={`status-pill ${(app.status || '').toLowerCase()}`}>
+                    <span className={`status-pill ${String(app.status || '').toLowerCase()}`}>
                       {app.status}
                     </span>
                   </td>
@@ -229,15 +332,16 @@ const Applicants = () => {
                 </tr>
               ))
             ) : (
-              <tr><td colSpan="7" className="no-data">No applicants found matching filters.</td></tr>
+              <tr><td colSpan="8" className="no-data">No applicants found matching filters.</td></tr>
             )}
           </tbody>
         </table>
 
-        {/* PAGINATION */}
         <div className="pagination-container">
           <div className="pagination-info">
-            Showing {currentItems.length > 0 ? ((currentPage - 1) * itemsPerPage) + 1 : 0} to {Math.min(currentPage * itemsPerPage, filteredData.length)} of {filteredData.length} entries
+            Showing {filteredData.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}
+            -
+            {Math.min(currentPage * itemsPerPage, filteredData.length)} of {filteredData.length} applicants
           </div>
           <div className="pagination-controls">
             <button
@@ -245,10 +349,9 @@ const Applicants = () => {
               onClick={() => setCurrentPage((prev) => prev - 1)}
               disabled={currentPage === 1}
             >
-              <ChevronLeft size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-              Previous
+              <ChevronLeft size={14} /> Previous
             </button>
-            {[...Array(totalPages)].map((_, index) => (
+            {[...Array(totalPages || 0)].map((_, index) => (
               <button
                 key={index + 1}
                 className={`page-number ${currentPage === index + 1 ? 'active' : ''}`}
@@ -262,14 +365,12 @@ const Applicants = () => {
               onClick={() => setCurrentPage((prev) => prev + 1)}
               disabled={currentPage === totalPages || totalPages === 0}
             >
-              Next
-              <ChevronRight size={14} style={{ verticalAlign: 'middle', marginLeft: 4 }} />
+              Next <ChevronRight size={14} />
             </button>
           </div>
         </div>
       </div>
 
-      {/* MODAL (PROTOTYPE DESIGN) */}
       {selectedApplicant && (
         <div className="app-modal-overlay" onClick={() => setSelectedApplicant(null)}>
           <div className="app-modal-content" onClick={(e) => e.stopPropagation()}>
@@ -286,7 +387,6 @@ const Applicants = () => {
             </div>
 
             <div className="app-modal-body">
-              {/* PERSONAL INFO */}
               <section>
                 <div className="app-section-header">
                   <FileText className="app-section-icon" size={20} />
@@ -315,7 +415,6 @@ const Applicants = () => {
                 </div>
               </section>
 
-              {/* DOCUMENTS */}
               <section>
                 <div className="app-section-header">
                   <FileText className="app-section-icon" size={20} />
@@ -342,7 +441,7 @@ const Applicants = () => {
                         </a>
                       </div>
                     </div>
-                  ) : <p className="no-data" style={{ fontSize: '0.85rem', color: '#718096', paddingLeft: '10px' }}>No Resume Uploaded</p>}
+                  ) : <p className="no-data modal-text-helper">No Resume Uploaded</p>}
 
                   {selectedApplicant.cover_letter_url ? (
                     <div className="app-doc-card">
@@ -364,11 +463,10 @@ const Applicants = () => {
                         </a>
                       </div>
                     </div>
-                  ) : <p className="no-data" style={{ fontSize: '0.85rem', color: '#718096', paddingLeft: '10px' }}>No Cover Letter Uploaded</p>}
+                  ) : <p className="no-data modal-text-helper">No Cover Letter Uploaded</p>}
                 </div>
               </section>
 
-              {/* MEDICAL CONDITION */}
               <section>
                 <div className="app-section-header">
                   <FileText className="app-section-icon" size={20} />
@@ -384,7 +482,7 @@ const Applicants = () => {
                     </span>
                   </div>
                   {selectedApplicant.medicalCondition === 'yes' && (
-                    <div className="app-info-item" style={{ marginTop: '15px' }}>
+                    <div className="app-info-item app-medical-detail">
                       <span className="app-info-label">Condition Details</span>
                       <span className="app-info-value">{selectedApplicant.medicalDetails || 'No details provided'}</span>
                     </div>
@@ -393,49 +491,55 @@ const Applicants = () => {
               </section>
             </div>
 
-            {/* ACTION BUTTONS FOR "APPLIED" STATUS */}
-            {(selectedApplicant.status || '').toLowerCase() === 'applied' && (
-              <div className="app-modal-footer" style={{ display: 'flex', gap: '15px', padding: '0 24px 24px 24px' }}>
+            {String(selectedApplicant.status || '').toLowerCase() === 'applied' && (
+              <div className="app-modal-footer">
                 <button
-                  className="app-btn-approve"
-                  style={{ flex: 1, padding: '14px', fontSize: '1rem', display: 'flex', justifyContent: 'center', alignItems: 'center' }}
-                  onClick={() => handleUpdateStatus(selectedApplicant.id, 'Interview')}
+                  className="app-btn-approve footer-action"
+                  onClick={() => openStatusConfirmation(selectedApplicant, 'Interview')}
                 >
                   Approve for Interview
                 </button>
                 <button
-                  className="app-btn-reject"
-                  style={{ flex: 1, padding: '14px', fontSize: '1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
-                  onClick={() => handleUpdateStatus(selectedApplicant.id, 'Rejected')}
+                  className="app-btn-reject footer-action"
+                  onClick={() => openStatusConfirmation(selectedApplicant, 'Rejected')}
                 >
                   <XCircle size={18} strokeWidth={2.5} /> Reject Application
                 </button>
               </div>
             )}
 
-            {/* ACTION BUTTONS FOR "INTERVIEW" STATUS */}
-            {(selectedApplicant.status || '').toLowerCase() === 'interview' && (
-              <div className="app-modal-footer" style={{ display: 'flex', gap: '15px', padding: '0 24px 24px 24px' }}>
+            {String(selectedApplicant.status || '').toLowerCase() === 'interview' && (
+              <div className="app-modal-footer">
                 <button
-                  className="app-btn-approve"
-                  style={{ flex: 1, padding: '14px', fontSize: '1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', backgroundColor: '#22c55e' }} // Green color for Hire
-                  onClick={() => handleUpdateStatus(selectedApplicant.id, 'Hired')}
+                  className="app-btn-approve footer-action hire-action"
+                  onClick={() => openStatusConfirmation(selectedApplicant, 'Hired')}
                 >
                   <CheckCircle size={18} strokeWidth={2.5} /> Hire Applicant
                 </button>
                 <button
-                  className="app-btn-reject"
-                  style={{ flex: 1, padding: '14px', fontSize: '1rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}
-                  onClick={() => handleUpdateStatus(selectedApplicant.id, 'Rejected')}
+                  className="app-btn-reject footer-action"
+                  onClick={() => openStatusConfirmation(selectedApplicant, 'Rejected')}
                 >
                   <XCircle size={18} strokeWidth={2.5} /> Reject Applicant
                 </button>
               </div>
             )}
-            
           </div>
         </div>
       )}
+
+      <ConfirmationModal
+        isOpen={Boolean(confirmAction)}
+        title={confirmAction ? `Confirm ${confirmAction.status}` : ''}
+        message={confirmAction ? `Are you sure you want to mark ${confirmAction.applicantName || 'this applicant'} as ${confirmAction.status}?` : ''}
+        confirmLabel={confirmAction ? `Yes, mark as ${confirmAction.status}` : 'Confirm'}
+        tone={confirmAction?.status === 'Hired' ? 'success' : 'warning'}
+        loading={statusUpdateLoading}
+        onCancel={() => {
+          if (!statusUpdateLoading) setConfirmAction(null);
+        }}
+        onConfirm={() => handleUpdateStatus(confirmAction.applicantId, confirmAction.status)}
+      />
     </div>
   );
 };

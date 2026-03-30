@@ -13,6 +13,7 @@ import Applicants from '../Tabs/Applicants';
 import JobPostings from '../Tabs/JobPostings';
 import Schedules from '../Tabs/Schedules';
 import Reports from '../Tabs/Reports';
+import ConfirmationModal from '../components/ConfirmationModal';
 import './Dashboard.css';
 
 const Dashboard = ({ onLogout }) => {
@@ -24,7 +25,7 @@ const Dashboard = ({ onLogout }) => {
       <aside className="sidebar">
         <div className="sidebar-top">
           <div className="logo-container">
-            <img src={logoImg} alt="6R Diamond Logo" className="sidebar-logo" />cd
+            <img src={logoImg} alt="6R Diamond Logo" className="sidebar-logo" />
           </div>
           <nav className="nav-menu">
             <button 
@@ -99,18 +100,18 @@ const Dashboard = ({ onLogout }) => {
         </main>
       </div>
 
-      {showLogoutModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header"><h3>Confirm Logout</h3></div>
-            <p>Are you sure you want to logout?</p>
-            <div className="modal-buttons">
-              <button className="btn-cancel" onClick={() => setShowLogoutModal(false)}>Cancel</button>
-              <button className="btn-logout" onClick={onLogout}>Logout</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmationModal
+        isOpen={showLogoutModal}
+        title="Confirm Logout"
+        message="Are you sure you want to logout? You will need to login again to access the HR Dashboard."
+        confirmLabel="Logout"
+        cancelLabel="Cancel"
+        tone="danger"
+        icon={LogOut}
+        showCloseButton={false}
+        onCancel={() => setShowLogoutModal(false)}
+        onConfirm={onLogout}
+      />
     </div>
   );
 };

@@ -9,6 +9,7 @@ import {
   Eye,
   Plus,
   Filter,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Edit,
@@ -18,6 +19,7 @@ import {
 } from 'lucide-react';
 import { getApiBaseUrl } from '../config/api';
 import './JobPostings.css';
+import CustomSelect from '../components/CustomSelect';
 
 const DEFAULT_CONTRACT_TYPES = ['Full-time', 'Part-time', 'Contract', 'Internship'];
 
@@ -380,12 +382,11 @@ const JobPostings = () => {
   ];
 
   return (
-    <div className="jobs-container">
-      <div className="header-with-icon">
-        <div className="title-icon-box"><Briefcase size={22} color="#3b82f6" /></div>
+      <div className="jobs-container">
+      <div className="hr-page-heading">
+        <div className="hr-page-icon"><Briefcase size={22} /></div>
         <div className="title-text">
           <h2>Job Posting Management</h2>
-          <p>Create, manage, and track job postings</p>
         </div>
       </div>
 
@@ -417,8 +418,11 @@ const JobPostings = () => {
         <div className="filter-actions-right">
           <div className="custom-dropdown-container">
             <div className="custom-dropdown-btn" onClick={(e) => toggleFilterMenu(e, 'dept')}>
-              <Filter size={14} style={{ marginRight: '8px', color: '#94a3b8' }} />
-              <span>{selectedDept}</span>
+              <div className="custom-dropdown-btn-main">
+                <Filter size={14} style={{ color: '#94a3b8' }} />
+                <span>{selectedDept}</span>
+              </div>
+              <ChevronDown size={16} className={`custom-dropdown-chevron ${activeFilterMenu === 'dept' ? 'open' : ''}`} />
             </div>
             {activeFilterMenu === 'dept' && (
               <div className="filter-drop-menu" onClick={(e) => e.stopPropagation()}>
@@ -437,8 +441,11 @@ const JobPostings = () => {
 
           <div className="custom-dropdown-container">
             <div className="custom-dropdown-btn" onClick={(e) => toggleFilterMenu(e, 'branch')}>
-              <Filter size={14} style={{ marginRight: '8px', color: '#94a3b8' }} />
-              <span>{selectedBranch}</span>
+              <div className="custom-dropdown-btn-main">
+                <Filter size={14} style={{ color: '#94a3b8' }} />
+                <span>{selectedBranch}</span>
+              </div>
+              <ChevronDown size={16} className={`custom-dropdown-chevron ${activeFilterMenu === 'branch' ? 'open' : ''}`} />
             </div>
             {activeFilterMenu === 'branch' && (
               <div className="filter-drop-menu" onClick={(e) => e.stopPropagation()}>
@@ -609,39 +616,30 @@ const JobPostings = () => {
               </div>
               <div className="form-group">
                 <label>Department</label>
-                <select
+                <CustomSelect
                   className="form-select"
                   value={createForm.department}
-                  onChange={(e) => setCreateForm((prev) => ({ ...prev, department: e.target.value }))}
-                >
-                  {createDepartments.map((dep) => (
-                    <option key={dep} value={dep}>{dep}</option>
-                  ))}
-                </select>
+                  onChange={(nextValue) => setCreateForm((prev) => ({ ...prev, department: nextValue }))}
+                  options={createDepartments}
+                />
               </div>
               <div className="form-group">
                 <label>Branch</label>
-                <select
+                <CustomSelect
                   className="form-select"
                   value={createForm.branch}
-                  onChange={(e) => setCreateForm((prev) => ({ ...prev, branch: e.target.value }))}
-                >
-                  {createBranches.map((branch) => (
-                    <option key={branch} value={branch}>{branch}</option>
-                  ))}
-                </select>
+                  onChange={(nextValue) => setCreateForm((prev) => ({ ...prev, branch: nextValue }))}
+                  options={createBranches}
+                />
               </div>
               <div className="form-group">
                 <label>Contract Type</label>
-                <select
+                <CustomSelect
                   className="form-select"
                   value={createForm.contract_type}
-                  onChange={(e) => setCreateForm((prev) => ({ ...prev, contract_type: e.target.value }))}
-                >
-                  {contractTypes.map((type) => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
+                  onChange={(nextValue) => setCreateForm((prev) => ({ ...prev, contract_type: nextValue }))}
+                  options={contractTypes}
+                />
               </div>
               <div className="form-group">
                 <label>Job Description</label>
@@ -692,27 +690,21 @@ const JobPostings = () => {
               </div>
               <div className="form-group">
                 <label>Department</label>
-                <select
+                <CustomSelect
                   className="form-select"
                   value={editForm.department}
-                  onChange={(e) => setEditForm((prev) => ({ ...prev, department: e.target.value }))}
-                >
-                  {editableDepartments.map((dep) => (
-                    <option key={dep} value={dep}>{dep}</option>
-                  ))}
-                </select>
+                  onChange={(nextValue) => setEditForm((prev) => ({ ...prev, department: nextValue }))}
+                  options={editableDepartments}
+                />
               </div>
               <div className="form-group">
                 <label>Contract Type</label>
-                <select
+                <CustomSelect
                   className="form-select"
                   value={editForm.contract_type}
-                  onChange={(e) => setEditForm((prev) => ({ ...prev, contract_type: e.target.value }))}
-                >
-                  {contractTypes.map((type) => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
+                  onChange={(nextValue) => setEditForm((prev) => ({ ...prev, contract_type: nextValue }))}
+                  options={contractTypes}
+                />
               </div>
               <div className="form-group">
                 <label>Job Description</label>

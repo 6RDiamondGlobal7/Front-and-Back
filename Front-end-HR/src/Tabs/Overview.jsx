@@ -1,20 +1,31 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
-import { getApiBaseUrl } from '../config/api'; // <-- DINAGDAG NATIN ITO
+import {
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  Hourglass,
+  LayoutDashboard,
+  UserRoundCheck,
+  Users
+} from 'lucide-react';
+import { getApiBaseUrl } from '../config/api';
 import './Overview.css';
 
 const Overview = () => {
   const [applicants, setApplicants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
-  // <-- BINAGO NATIN ITO PARA MAGING DYNAMIC ANG URL
+  const [activeSegmentKey, setActiveSegmentKey] = useState(null);
+  const [chartPage, setChartPage] = useState(0);
   const API_BASE_URL = getApiBaseUrl();
 
   useEffect(() => {
     const fetchApplicants = async () => {
       setLoading(true);
       setError('');
+
       try {
         const response = await axios.get(`${API_BASE_URL}/api/applicants`);
         setApplicants(Array.isArray(response.data) ? response.data : []);
@@ -32,13 +43,13 @@ const Overview = () => {
 
   const stats = useMemo(() => {
     const applied = applicants.filter((a) => {
-      const status = (a.status || '').toLowerCase();
+      const status = String(a.status || '').toLowerCase();
       return status === 'applied' || status === 'pending';
     }).length;
 
-    const interview = applicants.filter((a) => (a.status || '').toLowerCase() === 'interview').length;
-    const hired = applicants.filter((a) => (a.status || '').toLowerCase() === 'hired').length;
-    const rejected = applicants.filter((a) => (a.status || '').toLowerCase() === 'rejected').length;
+    const interview = applicants.filter((a) => String(a.status || '').toLowerCase() === 'interview').length;
+    const hired = applicants.filter((a) => String(a.status || '').toLowerCase() === 'hired').length;
+    const rejected = applicants.filter((a) => String(a.status || '').toLowerCase() === 'rejected').length;
 
     return {
       total: applicants.length,
@@ -56,18 +67,60 @@ const Overview = () => {
         const bNum = Number(String(b.id || '').replace(/\D/g, '')) || 0;
         return bNum - aNum;
       })
-      .slice(0, 5);
+      .slice(0, 4);
   }, [applicants]);
+
+  const branchDistribution = useMemo(() => {
+    const normalizeBranch = (value) => {
+      const cleaned = String(value || '').trim().toLowerCase();
+      if (cleaned === 'manila') return 'Manila';
+      if (cleaned === 'cebu') return 'Cebu';
+      if (cleaned === 'davao') return 'Davao';
+      return '';
+    };
+
+    const counts = { Manila: 0, Cebu: 0, Davao: 0 };
+    applicants.forEach((applicant) => {
+      const branch = normalizeBranch(applicant.branch);
+      if (branch && counts[branch] !== undefined) {
+        counts[branch] += 1;
+      }
+    });
+
+    const total = counts.Manila + counts.Cebu + counts.Davao;
+    const percentage = (value) => (total > 0 ? ((value / total) * 100).toFixed(1) : '0.0');
+
+    return [
+      { key: 'manila', label: 'Manila', value: counts.Manila, pct: percentage(counts.Manila), className: 'blue' },
+      { key: 'cebu', label: 'Cebu', value: counts.Cebu, pct: percentage(counts.Cebu), className: 'purple' },
+      { key: 'davao', label: 'Davao', value: counts.Davao, pct: percentage(counts.Davao), className: 'green' }
+    ];
+  }, [applicants]);
+
+  const leadingBranch = useMemo(() => (
+    [...branchDistribution].sort((a, b) => b.value - a.value)[0] || null
+  ), [branchDistribution]);
+
+  const maxBranchValue = useMemo(() => (
+    Math.max(...branchDistribution.map((item) => item.value), 1)
+  ), [branchDistribution]);
+
+  const branchAxisTicks = useMemo(() => (
+    Array.from({ length: 5 }, (_, index) => {
+      const value = Math.round((maxBranchValue / 4) * (4 - index));
+      return { key: `tick-${index}`, value };
+    })
+  ), [maxBranchValue]);
 
   const chartData = useMemo(() => {
     const total = stats.applied + stats.interview + stats.hired + stats.rejected;
-    const safePct = (value) => (total > 0 ? ((value / total) * 100).toFixed(1) : '0.0');
+    const percentage = (value) => (total > 0 ? ((value / total) * 100).toFixed(1) : '0.0');
 
     return [
-      { key: 'applied', label: 'Applied', className: 'blue', value: stats.applied, pct: safePct(stats.applied) },
-      { key: 'interview', label: 'Interview', className: 'orange', value: stats.interview, pct: safePct(stats.interview) },
-      { key: 'hired', label: 'Hired', className: 'green', value: stats.hired, pct: safePct(stats.hired) },
-      { key: 'rejected', label: 'Rejected', className: 'red', value: stats.rejected, pct: safePct(stats.rejected) }
+      { key: 'applied', label: 'Applied', className: 'blue', value: stats.applied, pct: percentage(stats.applied) },
+      { key: 'interview', label: 'Interview', className: 'purple', value: stats.interview, pct: percentage(stats.interview) },
+      { key: 'hired', label: 'Hired', className: 'green', value: stats.hired, pct: percentage(stats.hired) },
+      { key: 'rejected', label: 'Rejected', className: 'red', value: stats.rejected, pct: percentage(stats.rejected) }
     ];
   }, [stats]);
 
@@ -76,10 +129,10 @@ const Overview = () => {
     if (total === 0) return [];
 
     const colorMap = {
-      blue: '#5d9cec',
-      orange: '#f6b93b',
-      green: '#2ecc71',
-      red: '#e74c3c'
+      blue: '#5a8fe6',
+      purple: '#9a66f2',
+      green: '#2ac181',
+      red: '#f06f6f'
     };
 
     let startAngle = -90;
@@ -88,151 +141,309 @@ const Overview = () => {
       .map((item) => {
         const sweep = (item.value / total) * 360;
         const endAngle = startAngle + sweep;
-        const midAngle = startAngle + sweep / 2;
         const segment = {
           ...item,
           startAngle,
           endAngle,
-          midAngle,
-          color: colorMap[item.className] || '#5d9cec',
-          isLarge: sweep > 180
+          midAngle: startAngle + sweep / 2,
+          isLarge: sweep > 180,
+          color: colorMap[item.className]
         };
         startAngle = endAngle;
         return segment;
       });
   }, [chartData]);
 
-  const polarToCartesian = (cx, cy, r, angleDeg) => {
+  useEffect(() => {
+    if (!pieSegments.length) setActiveSegmentKey(null);
+  }, [pieSegments]);
+
+  const polarToCartesian = (cx, cy, radius, angleDeg) => {
     const rad = (Math.PI / 180) * angleDeg;
     return {
-      x: cx + r * Math.cos(rad),
-      y: cy + r * Math.sin(rad)
+      x: cx + radius * Math.cos(rad),
+      y: cy + radius * Math.sin(rad)
     };
   };
 
-  const buildArcPath = (cx, cy, r, startAngle, endAngle, isLarge) => {
-    const start = polarToCartesian(cx, cy, r, startAngle);
-    const end = polarToCartesian(cx, cy, r, endAngle);
-    return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${isLarge ? 1 : 0} 1 ${end.x} ${end.y} Z`;
+  const buildArcPath = (cx, cy, radius, startAngle, endAngle, isLarge) => {
+    const start = polarToCartesian(cx, cy, radius, startAngle);
+    const end = polarToCartesian(cx, cy, radius, endAngle);
+    return `M ${cx} ${cy} L ${start.x} ${start.y} A ${radius} ${radius} 0 ${isLarge ? 1 : 0} 1 ${end.x} ${end.y} Z`;
   };
 
+  const activeSegment = pieSegments.find((segment) => segment.key === activeSegmentKey) || null;
+  const isDonutMode = Boolean(activeSegment);
+
+  const upcomingText = loading ? 'Loading interview queue...' : `${stats.interview} applicant(s) scheduled for interview review`;
+
   return (
-    <div className="overview-content">
-      <div className="tab-title-area">
-        <div className="title-icon">OV</div>
-        <h2>Dashboard Overview</h2>
+    <div className="overview-content hr-page">
+      <div className="hr-page-heading">
+        <div className="hr-page-icon">
+          <LayoutDashboard size={22} />
+        </div>
+        <div>
+          <h2>Dashboard Overview</h2>
+        </div>
       </div>
 
-      <div className="stats-container">
-        <div className="stat-card border-blue">
-          <div className="stat-info">
+      <div className="overview-stats-grid">
+        <div className="overview-stat-card accent-blue">
+          <div>
             <p>Total Applicants</p>
             <h3>{loading ? '-' : stats.total}</h3>
           </div>
-          <div className="stat-icon blue-bg">AP</div>
+          <div className="overview-stat-icon blue-soft">
+            <Users size={20} />
+          </div>
         </div>
-        <div className="stat-card border-orange">
-          <div className="stat-info">
+
+        <div className="overview-stat-card accent-orange">
+          <div>
             <p>Pending Approval</p>
             <h3>{loading ? '-' : stats.applied}</h3>
           </div>
-          <div className="stat-icon orange-bg">PD</div>
+          <div className="overview-stat-icon orange-soft">
+            <Hourglass size={20} />
+          </div>
         </div>
-        <div className="stat-card border-purple">
-          <div className="stat-info">
+
+        <div className="overview-stat-card accent-purple">
+          <div>
             <p>For Interview</p>
             <h3>{loading ? '-' : stats.interview}</h3>
           </div>
-          <div className="stat-icon purple-bg">IN</div>
+          <div className="overview-stat-icon purple-soft">
+            <CalendarDays size={20} />
+          </div>
         </div>
-        <div className="stat-card border-green">
-          <div className="stat-info">
+
+        <div className="overview-stat-card accent-green">
+          <div>
             <p>Hired Applicants</p>
             <h3>{loading ? '-' : stats.hired}</h3>
           </div>
-          <div className="stat-icon green-bg">HR</div>
+          <div className="overview-stat-icon green-soft">
+            <UserRoundCheck size={20} />
+          </div>
         </div>
       </div>
 
-      <div className="data-grid">
-        <div className="chart-section card">
-          <h4>Applicant Status Distribution</h4>
-          <div className="dummy-chart-container">
-            <div className="pie-placeholder">
-              <svg viewBox="0 0 320 320" className="pie-svg" role="img" aria-label="Applicant status distribution pie chart">
-                <circle cx="160" cy="160" r="130" fill="#e2e8f0" />
-                {pieSegments.map((segment) => (
-                  <path
-                    key={segment.key}
-                    d={buildArcPath(160, 160, 130, segment.startAngle, segment.endAngle, segment.isLarge)}
-                    fill={segment.color}
-                    stroke="#ffffff"
-                    strokeWidth="2"
-                    strokeLinejoin="round"
-                  />
-                ))}
-                {pieSegments.map((segment) => {
-                  const labelPoint = polarToCartesian(160, 160, 84, segment.midAngle);
-                  return (
-                    <text
-                      key={`${segment.key}-label`}
-                      x={labelPoint.x}
-                      y={labelPoint.y}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      className="pie-label"
-                    >
-                      {segment.value}
-                    </text>
-                  );
-                })}
-              </svg>
-            </div>
-            <div className="chart-legend">
-              {chartData.map((item) => (
-                <span key={item.key}>
-                  <i className={`dot ${item.className}`}></i>
-                  {item.label} ({loading ? '-' : item.value}) {loading ? '' : `- ${item.pct}%`}
-                </span>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="lists-section">
-          <div className="list-card card">
-            <div className="list-header">
-              <h4>Upcoming Interviews</h4>
-              <span className="icon">INT</span>
-            </div>
-            <div className="list-item-box blue-fade">
-              <p className="date">Live Status</p>
-              <p className="subtext">
-                {loading ? 'Loading...' : `${stats.interview} applicant(s) in interview stage`}
-              </p>
-            </div>
+      <div className="overview-main-grid">
+        <section className="overview-panel">
+          <div className="overview-panel-header">
+            <h4>{chartPage === 0 ? 'Applicant Status Distribution' : 'Applicant Branch Distribution'}</h4>
           </div>
 
-          <div className="list-card card">
-            <div className="list-header">
-              <h4>Recent Applications</h4>
-              <span className="icon">RC</span>
-            </div>
-            {loading && <div className="empty-state">Loading recent applications...</div>}
-            {!loading && error && <div className="empty-state">{error}</div>}
-            {!loading && !error && recentApplications.length === 0 && (
-              <div className="empty-state">No applications yet.</div>
-            )}
-            {!loading && !error && recentApplications.map((app) => (
-              <div className="application-item" key={app.id}>
-                <p className="name">{app.name || 'Unnamed Applicant'}</p>
-                <p className="date">{app.id || 'N/A'}</p>
+          {error ? (
+            <div className="overview-empty-state">{error}</div>
+          ) : (
+            <div className="overview-chart-shell">
+              {chartPage === 0 ? (
+                <>
+                  <div className="overview-chart-visual">
+                    <svg viewBox="0 0 420 420" className="pie-svg" role="img" aria-label="Applicant status distribution pie chart">
+                      <circle cx="210" cy="210" r="138" fill="#edf4ff" />
+                      {pieSegments.map((segment) => {
+                        const isActive = segment.key === activeSegmentKey;
+                        const outerRadius = isDonutMode ? (isActive ? 144 : 138) : 138;
+                        const labelAnchor = polarToCartesian(210, 210, 164, segment.midAngle);
+                        const lineStart = polarToCartesian(210, 210, 118, segment.midAngle);
+                        const lineEnd = polarToCartesian(210, 210, 150, segment.midAngle);
+
+                        return (
+                          <g key={segment.key} className={`pie-segment-group ${isActive ? 'active' : ''}`}>
+                            <path
+                              className="pie-segment-shadow"
+                              d={buildArcPath(210, 210, isDonutMode && isActive ? 148 : outerRadius, segment.startAngle, segment.endAngle, segment.isLarge)}
+                              fill={segment.color}
+                              opacity={isDonutMode && isActive ? 0.22 : 0}
+                            />
+                            <path
+                              className="pie-segment"
+                              d={buildArcPath(210, 210, outerRadius, segment.startAngle, segment.endAngle, segment.isLarge)}
+                              fill={segment.color}
+                              stroke="#ffffff"
+                              strokeWidth="3"
+                            />
+                            <path
+                              d={`M ${lineStart.x} ${lineStart.y} L ${lineEnd.x} ${lineEnd.y}`}
+                              className="pie-label-line"
+                            />
+                            <text
+                              x={labelAnchor.x}
+                              y={labelAnchor.y - 4}
+                              textAnchor="middle"
+                              className={`pie-label-title ${isActive ? 'active' : ''}`}
+                            >
+                              {segment.label}
+                            </text>
+                            <text
+                              x={labelAnchor.x}
+                              y={labelAnchor.y + 14}
+                              textAnchor="middle"
+                              className={`pie-label-value ${isActive ? 'active' : ''}`}
+                            >
+                              {segment.pct}%
+                            </text>
+                          </g>
+                        );
+                      })}
+                      {isDonutMode && (
+                        <>
+                          <circle cx="210" cy="210" r="84" fill="#ffffff" stroke="#d9e7f7" strokeWidth="2" />
+                          <text x="210" y="188" textAnchor="middle" className="pie-center-kicker">
+                            {activeSegment ? activeSegment.label : 'Applicants'}
+                          </text>
+                          <text x="210" y="222" textAnchor="middle" className="pie-center-value">
+                            {loading ? '-' : activeSegment ? activeSegment.value : stats.total}
+                          </text>
+                          <text x="210" y="246" textAnchor="middle" className="pie-center-subtext">
+                            <tspan x="210" dy="0">{activeSegment ? `${activeSegment.pct}%` : 'Current'}</tspan>
+                            <tspan x="210" dy="14">{activeSegment ? 'of pipeline' : 'pipeline'}</tspan>
+                          </text>
+                        </>
+                      )}
+                    </svg>
+                  </div>
+
+                  <div className="overview-chart-labels">
+                    {chartData.map((item) => (
+                      <button
+                        key={item.key}
+                        type="button"
+                        className={`chart-pill ${item.className} ${activeSegmentKey === item.key ? 'active' : ''}`}
+                        onMouseEnter={() => setActiveSegmentKey(item.key)}
+                        onFocus={() => setActiveSegmentKey(item.key)}
+                        onMouseLeave={() => setActiveSegmentKey(null)}
+                        onBlur={() => setActiveSegmentKey(null)}
+                      >
+                        <span className={`chart-dot ${item.className}`}></span>
+                        <span>{item.label}</span>
+                        <strong>{loading ? '' : `${item.pct}%`}</strong>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="branch-chart-shell">
+                  <div className="branch-chart-summary">
+                    <div>
+                      <span className="branch-summary-kicker">Branch insight</span>
+                      <strong className="branch-summary-title">
+                        {loading ? 'Loading branch distribution...' : `${leadingBranch?.label || 'No branch'} leads the applicant flow`}
+                      </strong>
+                    </div>
+                    <span className="branch-summary-metric">
+                      {loading ? '' : `${leadingBranch?.pct || '0.0'}% of applicants`}
+                    </span>
+                  </div>
+
+                  <div className="branch-chart-layout">
+                    <div className="branch-chart-axis">
+                      {branchAxisTicks.map((tick) => (
+                        <span key={tick.key}>{loading ? '-' : tick.value}</span>
+                      ))}
+                    </div>
+
+                    <div className="branch-chart-plot">
+                      {branchAxisTicks.map((tick) => (
+                        <div key={`grid-${tick.key}`} className="branch-chart-grid-line"></div>
+                      ))}
+
+                      <div className="branch-chart-columns">
+                        {branchDistribution.map((item) => (
+                          <div key={item.key} className="branch-chart-column-wrap">
+                            <div className="branch-chart-bar-meta">
+                              <strong>{loading ? '-' : item.value}</strong>
+                              <span>{loading ? '' : `${item.pct}%`}</span>
+                            </div>
+                            <div
+                              className={`branch-chart-bar ${item.className}`}
+                              style={{ height: `${loading ? 0 : Math.max((item.value / maxBranchValue) * 100, item.value > 0 ? 12 : 0)}%` }}
+                            ></div>
+                            <div className="branch-chart-label-row">
+                              <span className={`chart-dot ${item.className}`}></span>
+                              <span className="branch-chart-label">{item.label}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="chart-slide-nav">
+                <button
+                  type="button"
+                  className={`chart-slide-btn ${chartPage === 0 ? 'disabled' : ''}`}
+                  onClick={() => setChartPage((current) => Math.max(0, current - 1))}
+                  disabled={chartPage === 0}
+                >
+                  <ChevronLeft size={16} />
+                  Previous
+                </button>
+                <div className="chart-slide-dots" aria-label="Chart pages">
+                  <span className={`chart-slide-dot ${chartPage === 0 ? 'active' : ''}`}></span>
+                  <span className={`chart-slide-dot ${chartPage === 1 ? 'active' : ''}`}></span>
+                </div>
+                <button
+                  type="button"
+                  className={`chart-slide-btn ${chartPage === 1 ? 'disabled' : ''}`}
+                  onClick={() => setChartPage((current) => Math.min(1, current + 1))}
+                  disabled={chartPage === 1}
+                >
+                  Next
+                  <ChevronRight size={16} />
+                </button>
               </div>
-            ))}
-            {!loading && !error && recentApplications.length > 0 && (
-              <div className="view-all">{recentApplications.length} latest application(s)</div>
+            </div>
+          )}
+        </section>
+
+        <div className="overview-side-stack">
+          <section className="overview-panel compact-panel">
+            <div className="overview-panel-header">
+              <h4>Upcoming Interviews</h4>
+              <div className="mini-icon blue-soft">
+                <CalendarDays size={18} />
+              </div>
+            </div>
+
+            <div className="info-callout blue-callout">
+              <div className="callout-title">Interview Pipeline</div>
+              <p>{upcomingText}</p>
+            </div>
+          </section>
+
+          <section className="overview-panel compact-panel">
+            <div className="overview-panel-header">
+              <h4>Recent Applications</h4>
+              <div className="mini-icon blue-soft">
+                <ClipboardList size={18} />
+              </div>
+            </div>
+
+            {loading && <div className="overview-empty-state">Loading recent applications...</div>}
+            {!loading && error && <div className="overview-empty-state">{error}</div>}
+            {!loading && !error && recentApplications.length === 0 && (
+              <div className="overview-empty-state">No applications yet.</div>
             )}
-          </div>
+
+            {!loading && !error && recentApplications.length > 0 && (
+              <div className="recent-application-list">
+                {recentApplications.map((app) => (
+                  <div className="recent-application-card" key={app.id}>
+                    <div className="recent-app-title">{app.name || 'Unnamed Applicant'}</div>
+                    <div className="recent-app-meta">{app.id || 'N/A'}</div>
+                  </div>
+                ))}
+                <div className="recent-footer">{recentApplications.length} latest application(s)</div>
+              </div>
+            )}
+          </section>
         </div>
       </div>
     </div>
