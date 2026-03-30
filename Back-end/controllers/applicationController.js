@@ -1,6 +1,20 @@
 const supabase = require('../config/supabaseClient');
+const nodemailer = require('nodemailer'); // --- NEW: Imported Nodemailer
 
+// ==========================================
+// --- Email Transporter Configuration ---
+// ==========================================
+const transporter = nodemailer.createTransport({
+    service: 'gmail', // Switched back to Gmail
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
+
+// ==========================================
 // --- Helper Function: Upload Single File ---
+// ==========================================
 const uploadFileToSupabase = async (fileObject) => {
     if (!fileObject) return null;
     
@@ -24,7 +38,9 @@ const uploadFileToSupabase = async (fileObject) => {
     return publicUrlData.publicUrl;
 };
 
-// --- Helper Functions for Reports ---
+// ==========================================
+// --- Helper Functions for Reports & Utils ---
+// ==========================================
 const formatDate = (value) => {
     if (!value) return 'N/A';
     const date = new Date(value);
@@ -233,6 +249,10 @@ const inferAppliedAtFromApplicant = (applicantRow) => {
     return null;
 };
 
+// ==========================================
+// --- Controllers ---
+// ==========================================
+
 // 1. Test Database Connection
 exports.testDb = async (req, res) => {
     try {
@@ -388,10 +408,13 @@ exports.deleteJobPosting = async (req, res) => {
     }
 };
 
-// 3. Submit Application
+// ==========================================
+// 3. Submit Application (UPDATED WITH EMAIL)
+// ==========================================
 exports.submitApplication = async (req, res) => {
     const files = req.files || {};
     
+    // Extracted email from the frontend form submission
     const {
         firstName, lastName, middleInitial, suffix,
         nationality, birthday, age, email, contactNumber,
@@ -414,7 +437,7 @@ exports.submitApplication = async (req, res) => {
         const safeMiddleInitial = middleInitial ? middleInitial.substring(0, 5) : null;
         const safeSuffix = suffix ? suffix.substring(0, 10) : null;
 
-        // 1. Insert sa Applicant table
+        // 1. Insert into Applicant table
         const { error: appError } = await supabase
             .from('applicant') 
             .insert([{ 
@@ -427,7 +450,7 @@ exports.submitApplication = async (req, res) => {
                 nationality: nationality,
                 birthday: birthday,
                 age: cleanAge,
-                email: email,
+                email: email, // Email stored dynamically in Supabase
                 contact_number: cleanContact,
                 region: region,
                 province: province,
@@ -445,7 +468,7 @@ exports.submitApplication = async (req, res) => {
 
         if (appError) throw appError;
 
-        // 2. Insert sa Status table
+        // 2. Insert into Status table
         const { data: newStatus, error: statusError } = await supabase
             .from('status')
             .insert([{ 
@@ -456,7 +479,7 @@ exports.submitApplication = async (req, res) => {
             .select()
             .single();
 
-        // 3. Link sa applicantfacttable
+        // 3. Link to applicantfacttable
         if (!statusError && newStatus) {
             await supabase
                 .from('applicantfacttable')
@@ -464,6 +487,40 @@ exports.submitApplication = async (req, res) => {
                     applicant_no: applicantNo,
                     status_id: newStatus.status_id
                 }]);
+        }
+
+        // ==========================================
+        // 4. Send Email to the Applicant
+        // ==========================================
+        if (email) { 
+            try {
+                const mailOptions = {
+                    from: `"6R Diamond Recruitment" <${process.env.EMAIL_USER}>`, 
+                    to: email, // Dynamic email pulled from req.body
+                    subject: 'Application Received - Login Credentials',
+                    html: `
+                        <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: auto;">
+                            <h2 style="color: #4A90E2;">Hello ${firstName},</h2>
+                            <p>Thank you for submitting your application to <strong>6R Diamond International Cargo Logistics, Inc.</strong></p>
+                            <p>We have successfully received your documents. You can track the status of your application through our portal using the credentials below:</p>
+                            
+                            <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 20px 0;">
+                                <p style="margin: 0 0 10px 0;"><strong>Applicant Number:</strong> <span style="font-size: 18px; color: #1e293b;">${applicantNo}</span></p>
+                                <p style="margin: 0;"><strong>Password:</strong> <span style="font-size: 18px; color: #1e293b;">${tempPassword}</span></p>
+                            </div>
+                            
+                            <p style="font-size: 14px; color: #64748b;">Please keep these details secure. We will review your application and update your status on the portal.</p>
+                            <br/>
+                            <p>Best regards,<br/><strong>Human Resources Department</strong><br/>6R Diamond International</p>
+                        </div>
+                    `
+                };
+                
+                await transporter.sendMail(mailOptions);
+                console.log(`Successfully sent credentials to applicant at: ${email}`);
+            } catch (emailErr) {
+                console.error("Warning: Failed to send email to applicant. Error: ", emailErr.message);
+            }
         }
 
         res.status(201).json({ message: "Application submitted!", applicantId: applicantNo });
@@ -476,7 +533,6 @@ exports.submitApplication = async (req, res) => {
 // 4. Get All Applicants
 exports.getApplicants = async (req, res) => {
     try {
-        // TAMA NA SYNTAX PANG JOIN NG STATUS TABLE
         const { data, error } = await supabase
             .from('applicant')
             .select(`
