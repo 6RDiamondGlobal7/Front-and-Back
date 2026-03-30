@@ -3,19 +3,23 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "main": "main.js",
+  "main": "main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "electron:dev": "cross-env NODE_ENV=development concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "electron:dev": "cross-env ELECTRON_RUN_AS_NODE= NODE_ENV=development concurrently \"npm.cmd run dev\" \"wait-on http://localhost:5173 && electron .\"",
     "electron:build": "vite build && electron-builder"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.x.x",
+    "axios": "^1.14.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.7",
+    "lucide-react": "^1.7.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "@supabase/supabase-js": "^2.x.x" 
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "concurrently": "^9.0.0",
@@ -32,7 +36,7 @@
     },
     "win": {
       "target": "nsis",
-      "icon": "src/assets/6RD.png" 
+      "icon": "src/assets/6RD.png"
     },
     "mac": {
       "target": "dmg"
