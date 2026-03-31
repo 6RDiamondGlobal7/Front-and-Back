@@ -7,6 +7,10 @@ import {
   Briefcase, CheckCircle, Eye, Users
 } from 'lucide-react';
 import './Schedules.css';
+import ConfirmationModal from '../components/ConfirmationModal';
+import CustomSelect from '../components/CustomSelect';
+import DatePicker from '../components/DatePicker';
+import Toast from '../components/Toast';
 
 const Schedules = () => {
   const API_BASE_URL = getApiBaseUrl();
@@ -20,8 +24,10 @@ const Schedules = () => {
   // Selection States (Left Panel)
   const [selectedIds, setSelectedIds] = useState([]); 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedBranch, setSelectedBranch] = useState(''); 
+  const [selectedBranch, setSelectedBranch] = useState('Manila'); 
   const [selectedDate, setSelectedDate] = useState('');
+  const [interviewSearchQuery, setInterviewSearchQuery] = useState('');
+  const [interviewDateFilter, setInterviewDateFilter] = useState('');
   
   // Staged for Time Slot Assignment (Right Panel)
   const [stagedApplicants, setStagedApplicants] = useState([]);
@@ -29,22 +35,36 @@ const Schedules = () => {
   // Modals
   const [showConfirmDateModal, setShowConfirmDateModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [completedScheduleCount, setCompletedScheduleCount] = useState(0);
   const [viewApplicantModal, setViewApplicantModal] = useState(null);
+  const [decisionModal, setDecisionModal] = useState(null);
+  const [decisionLoading, setDecisionLoading] = useState(false);
+  const [toast, setToast] = useState({ open: false, tone: 'info', message: '' });
 
   // Form States (Right Panel)
   const [scheduleForm, setScheduleForm] = useState({
-    location: '',
-    room: '',
+    location: 'Burke Building, Burke St, Binondo, Manila, 1006 Metro Manila',
+    room: '210',
     reminders: 'Be on time.'
   });
 
   const TIME_SLOTS = [
-    '8:00 AM - 9:00 AM', '8:30 AM - 9:30 AM', '9:00 AM - 10:00 AM',
-    '9:30 AM - 10:30 AM', '10:00 AM - 11:00 AM', '10:30 AM - 11:30 AM',
-    '1:00 PM - 2:00 PM', '1:30 PM - 2:30 PM', '2:00 PM - 3:00 PM',
-    '2:30 PM - 3:30 PM', '3:00 PM - 4:00 PM', '3:30 PM - 4:30 PM'
+    '8:00 AM - 8:30 AM',
+    '8:30 AM - 9:00 AM',
+    '9:00 AM - 9:30 AM',
+    '9:30 AM - 10:00 AM',
+    '10:00 AM - 10:30 AM',
+    '10:30 AM - 11:00 AM',
+    '11:00 AM - 11:30 AM',
+    '1:00 PM - 1:30 PM',
+    '1:30 PM - 2:00 PM',
+    '2:00 PM - 2:30 PM',
+    '2:30 PM - 3:00 PM',
+    '3:00 PM - 3:30 PM',
+    '3:30 PM - 4:00 PM',
+    '4:00 PM - 4:30 PM',
+    '4:30 PM - 5:00 PM'
   ];
-
   // --- BRANCH DETAILS DICTIONARY (Para sa Auto-Fill) ---
   const branchDetails = {
     'Manila': { location: 'Burke Building, Burke St, Binondo, Manila, 1006 Metro Manila', room: '210' },
@@ -52,16 +72,22 @@ const Schedules = () => {
     'Davao': { location: 'Abreeza Business Park, J.P. Laurel Ave, Davao City, 8000 Davao del Sur', room: '402' }
   };
 
-  const handleBranchChange = (e) => {
-    const branch = e.target.value;
-    setSelectedBranch(branch);
+  const normalizeBranch = (value) => {
+    if (!value) return '';
+    const cleaned = String(value).trim().toLowerCase();
+    return cleaned ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1) : '';
+  };
+
+  const handleBranchChange = (branch) => {
+    const normalizedBranch = normalizeBranch(branch);
+    setSelectedBranch(normalizedBranch);
     
     // Auto-fill logic
-    if (branchDetails[branch]) {
+    if (branchDetails[normalizedBranch]) {
       setScheduleForm(prev => ({
         ...prev,
-        location: branchDetails[branch].location,
-        room: branchDetails[branch].room
+        location: branchDetails[normalizedBranch].location,
+        room: branchDetails[normalizedBranch].room
       }));
     } else {
       setScheduleForm(prev => ({ ...prev, location: '', room: '' }));
@@ -85,8 +111,26 @@ const Schedules = () => {
       .eq('status.interview', 1)
       .not('schedule_id', 'is', null);
 
-    if (pendingData) setPendingApplicants(pendingData);
-    if (interviewData) setScheduledApplicants(interviewData);
+    if (pendingData) {
+      setPendingApplicants(
+        pendingData.map((item) => ({
+          ...item,
+          applicant: item.applicant
+            ? { ...item.applicant, branch: normalizeBranch(item.applicant.branch) }
+            : item.applicant
+        }))
+      );
+    }
+    if (interviewData) {
+      setScheduledApplicants(
+        interviewData.map((item) => ({
+          ...item,
+          applicant: item.applicant
+            ? { ...item.applicant, branch: normalizeBranch(item.applicant.branch) }
+            : item.applicant
+        }))
+      );
+    }
     setLoading(false);
   };
 
@@ -106,7 +150,10 @@ const Schedules = () => {
 
   // --- ASSIGN DATE (MOVE TO STAGED) ---
   const handleConfirmDate = () => {
-    if (!selectedDate) return alert("Please select a date first.");
+    if (!selectedDate) {
+      setToast({ open: true, tone: 'info', message: 'Please select a date first.' });
+      return;
+    }
     const applicantsToStage = pendingApplicants
       .filter(app => selectedIds.includes(app.applicant_no))
       .map(app => ({
@@ -134,10 +181,20 @@ const Schedules = () => {
   // --- COMPLETE SCHEDULING (MGA INAYOS SA DATABASE) ---
   const handleSaveSchedule = async () => {
     const unassigned = stagedApplicants.some(app => !app.timeSlot);
-    if (unassigned) return alert("Please assign time slots to all selected applicants.");
+    if (unassigned) {
+      setToast({ open: true, tone: 'info', message: 'Please assign time slots to all selected applicants.' });
+      return;
+    }
+
+    const roomValue = String(scheduleForm.room || '').trim();
+    if (!roomValue) {
+      setToast({ open: true, tone: 'info', message: 'Please enter a room number before completing scheduling.' });
+      return;
+    }
 
     setLoading(true);
     let hasError = false;
+    const scheduledCount = stagedApplicants.length;
 
     for (const app of stagedApplicants) {
       // Tinanggal ko yung .single() kasi baka ito ang nagccause ng silent error
@@ -146,14 +203,14 @@ const Schedules = () => {
         .insert([{
             interview_schedule: app.assignedDate,
             interview_time: app.timeSlot,
-            room_number: `${scheduleForm.location}, Room ${scheduleForm.room}`,
+            room_number: roomValue,
             reminders: scheduleForm.reminders
         }])
         .select();
 
       if (schedError) {
         console.error("Insert Schedule Error:", schedError);
-        alert(`Supabase Insert Error: ${schedError.message}`);
+        setToast({ open: true, tone: 'error', message: `Supabase Insert Error: ${schedError.message}` });
         hasError = true;
         continue; // Skip kung may error sa insert
       }
@@ -170,7 +227,7 @@ const Schedules = () => {
 
         if (updateError) {
           console.error("Update Fact Table Error:", updateError);
-          alert(`Supabase Update Error: ${updateError.message}`);
+          setToast({ open: true, tone: 'error', message: `Supabase Update Error: ${updateError.message}` });
           hasError = true;
         }
       }
@@ -179,6 +236,7 @@ const Schedules = () => {
     setLoading(false);
 
     if (!hasError) {
+      setCompletedScheduleCount(scheduledCount);
       setStagedApplicants([]);
       fetchData(); 
       setShowSuccessModal(true);
@@ -188,39 +246,75 @@ const Schedules = () => {
   // --- APPROVE / REJECT ---
   const handleDecision = async (status) => {
     if (!viewApplicantModal) return;
-    const confirmMsg = status === 'Hired' ? "Hire this candidate?" : "Reject this candidate?";
-    if (!window.confirm(confirmMsg)) return;
 
     try {
+      setDecisionLoading(true);
       await axios.put(`${API_BASE_URL}/api/applicants/${viewApplicantModal.applicant_no}/status`, { status: status });
-      alert(`Application ${status}`);
+      setToast({ open: true, tone: 'success', message: `Application ${status}` });
       setViewApplicantModal(null);
+      setDecisionModal(null);
       fetchData(); 
     } catch (err) {
-      alert("Failed to update status. Please try again.");
+      setToast({ open: true, tone: 'error', message: 'Failed to update status. Please try again.' });
+    } finally {
+      setDecisionLoading(false);
     }
+  };
+
+  const openDecisionModal = (status) => {
+    if (!viewApplicantModal) return;
+    setDecisionModal({
+      status,
+      applicantName: `${viewApplicantModal.applicant?.first_name || ''} ${viewApplicantModal.applicant?.last_name || ''}`.trim()
+    });
   };
 
   // --- FILTERS ---
   const filteredPending = pendingApplicants.filter(app => {
     if (stagedApplicants.some(staged => staged.applicant_no === app.applicant_no)) return false;
     const matchesSearch = `${app.applicant?.first_name} ${app.applicant?.last_name}`.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesBranch = selectedBranch ? app.applicant?.branch === selectedBranch : true; 
+    const matchesBranch = selectedBranch ? normalizeBranch(app.applicant?.branch) === normalizeBranch(selectedBranch) : true; 
     return matchesSearch && matchesBranch;
   });
-
-  const groupedScheduled = scheduledApplicants.reduce((groups, app) => {
-    const date = app.schedule?.interview_schedule || 'Unknown Date';
-    if (!groups[date]) groups[date] = [];
-    groups[date].push(app);
-    return groups;
-  }, {});
 
   const formatDateForDisplay = (dateString) => {
     if (!dateString) return '';
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     return new Date(dateString).toLocaleDateString('en-US', options);
   };
+
+  const getTimeSlotOptionsForApplicant = (currentApplicantNo, currentValue) => {
+    const usedSlots = new Set(
+      stagedApplicants
+        .filter((app) => app.applicant_no !== currentApplicantNo && app.timeSlot)
+        .map((app) => app.timeSlot)
+    );
+
+    return [
+      { value: '', label: 'Select time slot...' },
+      ...TIME_SLOTS.map((slot) => ({
+        value: slot,
+        label: slot,
+        disabled: usedSlots.has(slot) && slot !== currentValue
+      }))
+    ];
+  };
+
+  const filteredScheduledApplicants = scheduledApplicants.filter((app) => {
+    const fullName = `${app.applicant?.first_name || ''} ${app.applicant?.last_name || ''}`.toLowerCase();
+    const applicantNo = String(app.applicant_no || '').toLowerCase();
+    const matchesSearch = !interviewSearchQuery || fullName.includes(interviewSearchQuery.toLowerCase()) || applicantNo.includes(interviewSearchQuery.toLowerCase());
+    const scheduleDate = app.schedule?.interview_schedule || '';
+    const matchesDate = !interviewDateFilter || scheduleDate === interviewDateFilter;
+    return matchesSearch && matchesDate;
+  });
+
+  const filteredGroupedScheduled = filteredScheduledApplicants.reduce((groups, app) => {
+    const date = app.schedule?.interview_schedule || 'Unknown Date';
+    if (!groups[date]) groups[date] = [];
+    groups[date].push(app);
+    return groups;
+  }, {});
 
   // ================= VIEW: SET SCHEDULE =================
   const SetScheduleView = () => (
@@ -241,13 +335,18 @@ const Schedules = () => {
             />
           </div>
           <div className="input-wrap">
-            <MapPin className="input-icon" size={18} />
-            <select className="form-control select-control" value={selectedBranch} onChange={handleBranchChange}>
-              <option value="">All Branches</option>
-              <option value="Manila">Manila</option>
-              <option value="Cebu">Cebu</option>
-              <option value="Davao">Davao</option>
-            </select>
+            <CustomSelect
+              className="schedule-select"
+              icon={<MapPin size={18} />}
+              value={selectedBranch}
+              onChange={handleBranchChange}
+              placeholder="Select Branch"
+              options={[
+                { value: 'Manila', label: 'Manila' },
+                { value: 'Cebu', label: 'Cebu' },
+                { value: 'Davao', label: 'Davao' }
+              ]}
+            />
           </div>
         </div>
 
@@ -280,12 +379,11 @@ const Schedules = () => {
 
         <div className="assign-date-box">
           <label className="assign-date-label"><Calendar size={18} /> Assign Date</label>
-          <input 
-            type="date" 
-            className="form-control text-center date-input"
+          <DatePicker
             value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
+            onChange={setSelectedDate}
             disabled={selectedIds.length === 0}
+            placeholder="Select interview date"
           />
           {selectedIds.length > 0 && selectedDate && (
             <button className="btn-primary full-width mt-3" onClick={() => setShowConfirmDateModal(true)}>
@@ -324,15 +422,9 @@ const Schedules = () => {
              </div>
           ) : (
             <>
-              <div className="success-banner">
-                <Users size={24} className="text-gray" />
-                <h5>All applicants have dates assigned</h5>
-                <p>Great! Now assign time slots to your applicants</p>
-              </div>
-              
               <div className="staged-cards-list">
                 {stagedApplicants.map(app => (
-                  <div key={app.applicant_no} className="staged-item">
+                  <div key={app.applicant_no} className={`staged-item ${app.timeSlot ? 'assigned' : ''}`}>
                     <div className="staged-item-head">
                       <div className="staged-item-title">
                         <span className="app-badge">{app.applicant_no}</span> 
@@ -343,16 +435,17 @@ const Schedules = () => {
                     <div className="staged-item-date">
                       <Calendar size={14}/> {formatDateForDisplay(app.assignedDate)}
                     </div>
-                    <select 
-                      className="form-control mt-2"
-                      value={app.timeSlot}
-                      onChange={(e) => handleTimeSlotChange(app.applicant_no, e.target.value)}
-                    >
-                      <option value="">Select time slot...</option>
-                      {TIME_SLOTS.map(slot => (
-                        <option key={slot} value={slot}>{slot}</option>
-                      ))}
-                    </select>
+                    <div className="mt-2">
+                      <CustomSelect
+                        className="schedule-select"
+                        menuClassName="time-slot-menu"
+                        optionClassName="time-slot-option"
+                        value={app.timeSlot}
+                        onChange={(nextValue) => handleTimeSlotChange(app.applicant_no, nextValue)}
+                        placeholder="Select time slot..."
+                        options={getTimeSlotOptionsForApplicant(app.applicant_no, app.timeSlot)}
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -375,32 +468,65 @@ const Schedules = () => {
   const InterviewView = () => (
     <div className="interview-container">
       <div className="interview-header">
-        <div className="d-flex-center">
-          <Calendar size={24} className="text-blue" />
-          <h3 className="sched-title m-0">Interview Schedule</h3>
+        <div className="interview-header-main">
+          <div className="d-flex-center">
+            <Calendar size={24} className="text-blue" />
+            <h3 className="sched-title m-0">Interview Schedule</h3>
+          </div>
+          <span className="badge-light-blue interview-total-badge">
+            <Calendar size={16} />
+            {filteredScheduledApplicants.length} Total Interviews Scheduled
+          </span>
         </div>
-        <div className="d-flex-center gap-3">
-          <span className="badge-light-blue">{scheduledApplicants.length} Total Interviews Scheduled</span>
-          <button className="btn-outline"><Calendar size={16}/> Filter by Date</button>
+
+        <div className="interview-filter-row">
+          <div className="interview-search-box">
+            <Search className="search-icon interview-search-icon" size={18} />
+            <input
+              type="text"
+              className="form-control interview-search-input"
+              placeholder="Search by name or ID..."
+              value={interviewSearchQuery}
+              onChange={(e) => setInterviewSearchQuery(e.target.value)}
+            />
+          </div>
+          <div className="interview-date-filter">
+            <DatePicker
+              value={interviewDateFilter}
+              onChange={setInterviewDateFilter}
+              placeholder="Filter by Date"
+            />
+            {interviewDateFilter && (
+              <button
+                type="button"
+                className="interview-filter-clear"
+                onClick={() => setInterviewDateFilter('')}
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       <div className="interview-list">
-        {Object.keys(groupedScheduled).length === 0 ? (
-          <div className="empty-state-text text-center p-5">No interviews scheduled yet.</div>
+        {Object.keys(filteredGroupedScheduled).length === 0 ? (
+          <div className="empty-state-text text-center p-5">
+            {scheduledApplicants.length === 0 ? 'No interviews scheduled yet.' : 'No interviews match the current filters.'}
+          </div>
         ) : (
-          Object.keys(groupedScheduled).sort().map(date => (
+          Object.keys(filteredGroupedScheduled).sort().map(date => (
             <div key={date} className="date-group">
               <div className="date-group-title">
                 <Calendar size={20} className="text-muted" />
                 <div>
                   <h4>{formatDateForDisplay(date)}</h4>
-                  <p>{groupedScheduled[date].length} interviews scheduled</p>
+                  <p>{filteredGroupedScheduled[date].length} interviews scheduled</p>
                 </div>
               </div>
               
               <div className="date-group-content">
-                {groupedScheduled[date].map(app => (
+                {filteredGroupedScheduled[date].map(app => (
                   <div key={app.applicant_no} className="interview-item-row">
                     <div className="interview-time-col">
                       <Clock size={16}/> {app.schedule?.interview_time.split(' - ')[0]}
@@ -417,10 +543,10 @@ const Schedules = () => {
                       </div>
                     </div>
                     <div className="interview-action-col">
-                      <button className="btn-text-muted" onClick={() => setViewApplicantModal(app)}>
+                      <button className="interview-view-btn" onClick={() => setViewApplicantModal(app)}>
                         <Eye size={18}/> View
                       </button>
-                      <button className="btn-primary sm" onClick={() => window.open(app.applicant?.resume_url || '#', '_blank')}>
+                      <button className="interview-download-btn" onClick={() => window.open(app.applicant?.resume_url || '#', '_blank')}>
                         <Download size={16}/> Download
                       </button>
                     </div>
@@ -436,7 +562,15 @@ const Schedules = () => {
 
   return (
     <div className="schedules-wrapper">
-      {/* TAB NAVIGATION */}
+      <div className="hr-page-heading">
+        <div className="hr-page-icon">
+          <Calendar size={22} />
+        </div>
+        <div>
+          <h2>Schedules</h2>
+        </div>
+      </div>
+
       <div className="custom-tabs-container">
         <button className={`custom-tab ${activeTab === 'Set Schedule' ? 'active' : ''}`} onClick={() => setActiveTab('Set Schedule')}>
           <Calendar size={16} /> Set Schedule
@@ -447,34 +581,39 @@ const Schedules = () => {
       </div>
 
       <div className="tabs-content-area">
-        {activeTab === 'Set Schedule' ? <SetScheduleView /> : <InterviewView />}
+        {activeTab === 'Set Schedule' ? SetScheduleView() : InterviewView()}
       </div>
 
       {/* MODAL 1: CONFIRM DATE (STEP 4) */}
       {showConfirmDateModal && (
         <div className="custom-modal-backdrop">
-          <div className="custom-modal-box sm-modal">
-            <div className="modal-top">
-              <Calendar size={24} className="text-blue" />
-              <h2>Confirm Date Assignment</h2>
+          <div className="custom-modal-box sm-modal confirm-date-modal">
+            <div className="confirm-modal-header">
+              <div className="confirm-modal-title-row">
+                <div className="confirm-modal-icon-box">
+                  <Calendar size={24} className="text-blue" />
+                </div>
+                <h2>Confirm Date Assignment</h2>
+              </div>
+              <p className="confirm-modal-subtext">Please review the following information before proceeding</p>
             </div>
-            <p className="text-muted mb-4">Please review the following information before proceeding</p>
             
-            <div className="gray-box mb-3">
+            <div className="confirm-modal-body">
+              <div className="gray-box confirm-info-card">
               <label>INTERVIEW DATE</label>
-              <div className="box-val"><Calendar size={18}/> {formatDateForDisplay(selectedDate)}</div>
+              <div className="box-val confirm-box-val"><Calendar size={18}/> {formatDateForDisplay(selectedDate)}</div>
             </div>
 
-            <div className="gray-box mb-4">
+              <div className="gray-box confirm-info-card">
               <label>SELECTED APPLICANTS ({selectedIds.length})</label>
-              <ul className="selected-list">
+              <ul className="selected-list confirm-selected-list">
                 {pendingApplicants.filter(app => selectedIds.includes(app.applicant_no)).map(app => (
                   <li key={app.applicant_no}>• {app.applicant?.first_name} {app.applicant?.last_name} ({app.applicant_no})</li>
                 ))}
               </ul>
             </div>
 
-            <div className="yellow-info-box mb-4">
+              <div className="yellow-info-box confirm-next-step">
               <CheckCircle size={20} className="text-yellow-dark" />
               <div>
                 <strong>Next Step</strong>
@@ -482,7 +621,9 @@ const Schedules = () => {
               </div>
             </div>
 
-            <div className="modal-btn-group">
+            </div>
+
+            <div className="modal-btn-group confirm-modal-actions">
               <button className="btn-outline flex-1" onClick={() => setShowConfirmDateModal(false)}>Cancel</button>
               <button className="btn-primary flex-1" onClick={handleConfirmDate}>Confirm & Proceed</button>
             </div>
@@ -502,7 +643,7 @@ const Schedules = () => {
               <Calendar size={20} className="text-green-dark" />
               <div>
                 <strong>Interview Schedule Ready</strong>
-                <p>{stagedApplicants.length} interviews are scheduled and ready to go.</p>
+                <p>{completedScheduleCount} interviews are scheduled and ready to go.</p>
               </div>
             </div>
             
@@ -551,12 +692,32 @@ const Schedules = () => {
             </div>
 
             <div className="modal-footer-btns">
-              <button className="btn-green flex-1" onClick={() => handleDecision('Hired')}><Check size={20}/> Hire</button>
-              <button className="btn-red flex-1" onClick={() => handleDecision('Rejected')}><X size={20}/> Reject Application</button>
+              <button className="btn-green flex-1" onClick={() => openDecisionModal('Hired')}><Check size={20}/> Hire</button>
+              <button className="btn-red flex-1" onClick={() => openDecisionModal('Rejected')}><X size={20}/> Reject Application</button>
             </div>
           </div>
         </div>
       )}
+
+      <ConfirmationModal
+        isOpen={Boolean(decisionModal)}
+        title={decisionModal ? `${decisionModal.status === 'Hired' ? 'Hire' : 'Reject'} Applicant` : ''}
+        message={decisionModal ? `Are you sure you want to mark ${decisionModal.applicantName || 'this applicant'} as ${decisionModal.status}?` : ''}
+        confirmLabel={decisionModal ? `Yes, ${decisionModal.status === 'Hired' ? 'hire' : 'reject'} applicant` : 'Confirm'}
+        tone={decisionModal?.status === 'Hired' ? 'success' : 'danger'}
+        loading={decisionLoading}
+        onCancel={() => {
+          if (!decisionLoading) setDecisionModal(null);
+        }}
+        onConfirm={() => handleDecision(decisionModal.status)}
+      />
+
+      <Toast
+        open={toast.open}
+        tone={toast.tone}
+        message={toast.message}
+        onClose={() => setToast((current) => ({ ...current, open: false }))}
+      />
     </div>
   );
 };

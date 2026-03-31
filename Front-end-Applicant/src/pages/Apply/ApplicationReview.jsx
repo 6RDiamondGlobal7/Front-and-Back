@@ -12,6 +12,7 @@ const IconCloseDark = () => ( <svg width="20" height="20" viewBox="0 0 24 24" fi
 const IconWarningLarge = () => ( <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> );
 const IconFile = () => ( <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4A90E2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg> );
 const IconClose = () => ( <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> );
+const IconArrowLeft = () => ( <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"></path><path d="m12 19-7-7 7-7"></path></svg> );
 
 const ApplicationReview = () => {
   const navigate = useNavigate();
@@ -45,7 +46,7 @@ const ApplicationReview = () => {
 
   const handleBack = () => {
     localStorage.setItem('formStep', '4');
-    navigate(`/apply/${branch}/${roleId}/form`);
+    navigate(`/apply/${branch}/${roleId}/form`, { state: formData });
   };
 
   // --- SUBMIT FUNCTION WITH FILES ---
@@ -119,7 +120,7 @@ const ApplicationReview = () => {
   return (
     <div className="af-page-container">
       <div className="af-top-nav">
-        <button className="af-back-btn" onClick={handleBack}>← Back to Application Form</button>
+        <button className="af-back-btn" onClick={handleBack}><IconArrowLeft /> Back to Application Form</button>
         <div className="af-progress-wrapper">
           <div className="af-progress-header-row"><span className="af-progress-text">Progress</span><span className="af-progress-step">Step 5 of 5</span></div>
           <div className="af-progress-bar"><div className="af-progress-fill" style={{ width: '100%' }}></div></div>
@@ -161,6 +162,29 @@ const ApplicationReview = () => {
                 <div className="af-review-item"><label className="af-review-label-bold">CITY / MUNICIPALITY</label><span>{formData.city || 'N/A'}</span></div>
                 <div className="af-review-item"><label className="af-review-label-bold">BARANGAY</label><span>{formData.barangay || 'N/A'}</span></div>
                 <div className="af-review-item"><label className="af-review-label-bold">DETAILED ADDRESS</label><span>{formData.detailedAddress || 'N/A'}</span></div>
+            </div>
+        </div>
+
+        {/* MEDICAL CONDITION */}
+        <div className="af-review-section-card">
+            <h3 className="af-section-title"><span className="af-dot">•</span> Medical Condition Declaration</h3>
+            <div className="af-review-grid-inner">
+                <div className="af-review-item">
+                    <label className="af-review-label-bold">MEDICAL CONDITION</label>
+                    <span>
+                      {formData.medicalCondition === 'yes'
+                        ? 'Yes'
+                        : formData.medicalCondition === 'no'
+                          ? 'No'
+                          : 'N/A'}
+                    </span>
+                </div>
+                {formData.medicalCondition === 'yes' && (
+                  <div className="af-review-item">
+                      <label className="af-review-label-bold">CONDITION DETAILS</label>
+                      <span>{formData.medicalDetails || 'N/A'}</span>
+                  </div>
+                )}
             </div>
         </div>
 

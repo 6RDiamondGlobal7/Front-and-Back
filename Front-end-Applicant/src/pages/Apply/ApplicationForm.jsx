@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import './ApplicationForm.css';
 
 /* --- ICONS --- */
@@ -8,9 +8,82 @@ const IconClose = () => ( <svg width="20" height="20" viewBox="0 0 24 24" fill="
 const IconFile = () => ( <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4A90E2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg> );
 const IconCheckCircle = () => ( <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> );
 const IconCalendar = () => ( <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4A90E2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg> );
+const IconArrowRight = () => ( <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg> );
+const IconArrowLeft = () => ( <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"></path><path d="m12 19-7-7 7-7"></path></svg> );
+const IconChevronDownSoft = () => ( <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"></path></svg> );
 const IconChevronLeft = () => ( <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg> );
 const IconChevronRight = () => ( <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg> );
 const IconWarning = () => ( <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#B45309" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> );
+
+const FormSelect = ({ name, value, options, onChange, placeholder, disabled = false }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const rootRef = useRef(null);
+  const normalizedOptions = options.map((option) => (
+    typeof option === 'string'
+      ? { value: option, label: option }
+      : option
+  ));
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!rootRef.current?.contains(event.target)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (disabled) {
+      setIsOpen(false);
+    }
+  }, [disabled]);
+
+  const selectedLabel = value || placeholder;
+
+  const handleSelect = (nextValue) => {
+    onChange({ target: { name, value: nextValue } });
+    setIsOpen(false);
+  };
+
+  return (
+    <div ref={rootRef} className={`af-custom-select ${isOpen ? 'open' : ''} ${disabled ? 'disabled' : ''}`}>
+      <button
+        type="button"
+        className="af-custom-select-trigger"
+        onClick={() => !disabled && setIsOpen((current) => !current)}
+        disabled={disabled}
+      >
+        <span className={`af-custom-select-value ${value ? 'filled' : ''}`}>{selectedLabel}</span>
+        <span className="af-custom-select-arrow"><IconChevronDownSoft /></span>
+      </button>
+
+      {isOpen && (
+        <div className="af-custom-select-menu">
+          <button
+            type="button"
+            className={`af-custom-select-option ${!value ? 'selected' : ''}`}
+            onClick={() => handleSelect('')}
+          >
+            <span>{placeholder}</span>
+          </button>
+          {normalizedOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={`af-custom-select-option ${value === option.value ? 'selected' : ''}`}
+              onClick={() => handleSelect(option.value)}
+            >
+              <span>{option.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 /* --- CUSTOM DATE PICKER --- */
 const CustomDatePicker = ({ value, onChange }) => {
@@ -111,7 +184,10 @@ const CustomDatePicker = ({ value, onChange }) => {
 /* --- MAIN FORM COMPONENT --- */
 const ApplicationForm = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { branch, roleId } = useParams();
+  const PSGC_API_BASE = 'https://psgc.cloud/api/v2';
+  const initialFormData = location.state;
   
   const [currentStep, setCurrentStep] = useState(() => {
     const savedStep = localStorage.getItem('formStep');
@@ -128,37 +204,181 @@ const ApplicationForm = () => {
 
   const isBrokerRole = roleId ? roleId.toLowerCase().includes('broker') : false;
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState(() => ({
     firstName: '', lastName: '', middleInitial: '', suffix: '',
     nationality: '', birthday: '', age: '', email: '', contactNumber: '',
     region: '', province: '', city: '', barangay: '', detailedAddress: '',
-    resume: null, coverLetter: null, prcId: null, medicalCondition: null, medicalDetails: ''
-  });
+    resume: null, coverLetter: null, prcId: null, medicalCondition: null, medicalDetails: '',
+    ...(initialFormData || {})
+  }));
 
   const [ageError, setAgeError] = useState(false);
   const [contactError, setContactError] = useState(false);
+  const [provinceOptions, setProvinceOptions] = useState([]);
+  const [cityOptions, setCityOptions] = useState([]);
+  const [barangayOptions, setBarangayOptions] = useState([]);
+  const regionLocationsCache = useRef({});
+  const barangayCache = useRef({});
 
   // UPDATED REGIONS WITH FULL ABBREVIATIONS
   const regions = [
-    "NCR - National Capital Region",
-    "CAR - Cordillera Administrative Region",
-    "Region I - Ilocos Region",
-    "Region II - Cagayan Valley",
-    "Region III - Central Luzon",
-    "Region IV-A - CALABARZON",
-    "MIMAROPA Region",
-    "Region V - Bicol Region",
-    "Region VI - Western Visayas",
-    "Region VII - Central Visayas",
-    "Region VIII - Eastern Visayas",
-    "NIR - Negros Island Region",
-    "Region IX - Zamboanga Peninsula",
-    "Region X - Northern Mindanao",
-    "Region XI - Davao Region",
-    "Region XII - SOCCSKSARGEN",
-    "Region XIII - Caraga",
-    "BARMM - Bangsamoro Autonomous Region in Muslim Mindanao"
+    { value: 'NCR - National Capital Region', label: 'NCR - National Capital Region', code: '1300000000' },
+    { value: 'CAR - Cordillera Administrative Region', label: 'CAR - Cordillera Administrative Region', code: '1400000000' },
+    { value: 'Region I - Ilocos Region', label: 'Region I - Ilocos Region', code: '0100000000' },
+    { value: 'Region II - Cagayan Valley', label: 'Region II - Cagayan Valley', code: '0200000000' },
+    { value: 'Region III - Central Luzon', label: 'Region III - Central Luzon', code: '0300000000' },
+    { value: 'Region IV-A - CALABARZON', label: 'Region IV-A - CALABARZON', code: '0400000000' },
+    { value: 'MIMAROPA Region', label: 'MIMAROPA Region', code: '1700000000' },
+    { value: 'Region V - Bicol Region', label: 'Region V - Bicol Region', code: '0500000000' },
+    { value: 'Region VI - Western Visayas', label: 'Region VI - Western Visayas', code: '0600000000' },
+    { value: 'Region VII - Central Visayas', label: 'Region VII - Central Visayas', code: '0700000000' },
+    { value: 'Region VIII - Eastern Visayas', label: 'Region VIII - Eastern Visayas', code: '0800000000' },
+    { value: 'Region IX - Zamboanga Peninsula', label: 'Region IX - Zamboanga Peninsula', code: '0900000000' },
+    { value: 'Region X - Northern Mindanao', label: 'Region X - Northern Mindanao', code: '1000000000' },
+    { value: 'Region XI - Davao Region', label: 'Region XI - Davao Region', code: '1100000000' },
+    { value: 'Region XII - SOCCSKSARGEN', label: 'Region XII - SOCCSKSARGEN', code: '1200000000' },
+    { value: 'Region XIII - Caraga', label: 'Region XIII - Caraga', code: '1600000000' },
+    { value: 'BARMM - Bangsamoro Autonomous Region in Muslim Mindanao', label: 'BARMM - Bangsamoro Autonomous Region in Muslim Mindanao', code: '1900000000' }
   ];
+
+  const getResourceName = (resource) => {
+    if (typeof resource === 'string') return resource;
+    return resource?.name || '';
+  };
+
+  const fetchJson = async (url) => {
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`Failed to load ${url}`);
+    }
+    const payload = await response.json();
+    return Array.isArray(payload?.data) ? payload.data : payload;
+  };
+
+  useEffect(() => {
+    const loadRegionLocations = async () => {
+      if (!formData.region) {
+        setProvinceOptions([]);
+        setCityOptions([]);
+        setBarangayOptions([]);
+        return;
+      }
+
+      try {
+        const selectedRegion = regions.find((region) => region.value === formData.region);
+        if (!selectedRegion?.code) {
+          setProvinceOptions([]);
+          return;
+        }
+
+        const cachedProvinces = regionLocationsCache.current[selectedRegion.code];
+        const provinces = cachedProvinces || await fetchJson(
+          `${PSGC_API_BASE}/regions/${encodeURIComponent(selectedRegion.code)}/provinces`
+        );
+
+        regionLocationsCache.current[selectedRegion.code] = provinces;
+
+        if (selectedRegion.code === '1300000000') {
+          setProvinceOptions([
+            { value: 'Metro Manila', label: 'Metro Manila', code: '1300000000', regionCode: '1300000000', isNationalCapitalRegion: true }
+          ]);
+          return;
+        }
+
+        setProvinceOptions(
+          provinces
+            .map((item) => ({ value: item.name, label: item.name, code: item.code, regionCode: selectedRegion.code }))
+            .sort((a, b) => a.label.localeCompare(b.label))
+        );
+      } catch (error) {
+        console.error('Failed to load provinces for region:', error);
+        setProvinceOptions([]);
+      }
+    };
+
+    loadRegionLocations();
+  }, [formData.region]);
+
+  useEffect(() => {
+    if (!formData.region || !formData.province) {
+      setCityOptions([]);
+      setBarangayOptions([]);
+      return;
+    }
+
+    const loadCities = async () => {
+      const selectedProvince = provinceOptions.find((option) => option.value === formData.province);
+      if (!selectedProvince?.code) {
+        setCityOptions([]);
+        setBarangayOptions([]);
+        return;
+      }
+
+      try {
+        const cacheKey = selectedProvince.isNationalCapitalRegion
+          ? `region-${selectedProvince.regionCode}`
+          : `province-${selectedProvince.code}`;
+        const cachedCities = regionLocationsCache.current[cacheKey];
+        const cities = cachedCities || await fetchJson(
+          selectedProvince.isNationalCapitalRegion
+            ? `${PSGC_API_BASE}/regions/${encodeURIComponent(selectedProvince.regionCode)}/cities-municipalities`
+            : `${PSGC_API_BASE}/provinces/${encodeURIComponent(selectedProvince.code)}/cities-municipalities`
+        );
+
+        regionLocationsCache.current[cacheKey] = cities;
+
+        setCityOptions(
+          cities
+            .map((item) => ({
+              value: item.name,
+              label: item.name,
+              code: item.code
+            }))
+            .sort((a, b) => a.label.localeCompare(b.label))
+        );
+      } catch (error) {
+        console.error('Failed to load cities/municipalities for province:', error);
+        setCityOptions([]);
+      }
+    };
+
+    loadCities();
+  }, [formData.region, formData.province]);
+
+  useEffect(() => {
+    const loadBarangays = async () => {
+      if (!formData.city) {
+        setBarangayOptions([]);
+        return;
+      }
+
+      const selectedCity = cityOptions.find((option) => option.value === formData.city);
+      if (!selectedCity?.code) {
+        setBarangayOptions([]);
+        return;
+      }
+
+      try {
+        const cachedBarangays = barangayCache.current[selectedCity.code];
+        const barangays = cachedBarangays || await fetchJson(
+          `${PSGC_API_BASE}/cities-municipalities/${encodeURIComponent(selectedCity.code)}/barangays`
+        );
+
+        barangayCache.current[selectedCity.code] = barangays;
+
+        setBarangayOptions(
+          barangays
+            .map((item) => ({ value: item.name, label: item.name }))
+            .sort((a, b) => a.label.localeCompare(b.label))
+        );
+      } catch (error) {
+        console.error('Failed to load barangays for city/municipality:', error);
+        setBarangayOptions([]);
+      }
+    };
+
+    loadBarangays();
+  }, [formData.city, cityOptions]);
 
   useEffect(() => {
     if (formData.birthday) {
@@ -186,6 +406,27 @@ const ApplicationForm = () => {
         setFormData(prev => ({ ...prev, [name]: numericValue }));
         if (numericValue.length === 11 && numericValue.startsWith('0')) setContactError(false);
       }
+    } else if (name === 'region') {
+      setFormData(prev => ({
+        ...prev,
+        region: value,
+        province: '',
+        city: '',
+        barangay: ''
+      }));
+    } else if (name === 'province') {
+      setFormData(prev => ({
+        ...prev,
+        province: value,
+        city: '',
+        barangay: ''
+      }));
+    } else if (name === 'city') {
+      setFormData(prev => ({
+        ...prev,
+        city: value,
+        barangay: ''
+      }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
@@ -261,7 +502,7 @@ const ApplicationForm = () => {
   return (
     <div className="af-page-container">
       <div className="af-top-nav">
-        <button className="af-back-btn" onClick={handleBack}>← Back</button>
+        <button className="af-back-btn" onClick={handleBack}><IconArrowLeft /> Back</button>
         <div className="af-progress-wrapper">
           <div className="af-progress-header-row">
             <span className="af-progress-text">Progress</span>
@@ -307,17 +548,50 @@ const ApplicationForm = () => {
             <div className="af-grid">
               <div className="af-group">
                 <label className="af-label">Region <span className="req">*</span></label>
-                <select name="region" className="af-input" value={formData.region} onChange={handleChange}>
-                    <option value="">Select Region</option>
-                    {regions.map(r => <option key={r} value={r}>{r}</option>)}
-                </select>
+                <FormSelect
+                  name="region"
+                  value={formData.region}
+                  options={regions}
+                  onChange={handleChange}
+                  placeholder="Select Region"
+                />
               </div>
-              <div className="af-group"><label className="af-label">Province <span className="req">*</span></label><input type="text" name="province" className="af-input" placeholder="e.g., Metro Manila" value={formData.province} onChange={handleChange} /></div>
-              <div className="af-group"><label className="af-label">City/Municipality <span className="req">*</span></label><input type="text" name="city" className="af-input" placeholder="e.g., Quezon City" value={formData.city} onChange={handleChange} /></div>
-              <div className="af-group"><label className="af-label">Barangay <span className="req">*</span></label><input type="text" name="barangay" className="af-input" placeholder="e.g., Commonwealth" value={formData.barangay} onChange={handleChange} /></div>
+              <div className="af-group">
+                <label className="af-label">Province <span className="req">*</span></label>
+                <FormSelect
+                  name="province"
+                  value={formData.province}
+                  options={provinceOptions}
+                  onChange={handleChange}
+                  placeholder={formData.region ? 'Select Province' : 'Select Region First'}
+                  disabled={!formData.region}
+                />
+              </div>
+              <div className="af-group">
+                <label className="af-label">City/Municipality <span className="req">*</span></label>
+                <FormSelect
+                  name="city"
+                  value={formData.city}
+                  options={cityOptions}
+                  onChange={handleChange}
+                  placeholder={formData.province ? 'Select City/Municipality' : 'Select Province First'}
+                  disabled={!formData.province}
+                />
+              </div>
+              <div className="af-group">
+                <label className="af-label">Barangay <span className="req">*</span></label>
+                <FormSelect
+                  name="barangay"
+                  value={formData.barangay}
+                  options={barangayOptions}
+                  onChange={handleChange}
+                  placeholder={formData.city ? 'Select Barangay' : 'Select City/Municipality First'}
+                  disabled={!formData.city}
+                />
+              </div>
               <div className="af-group full-width"><label className="af-label">Detailed Address (House No., Street, Subdivision) <span className="req">*</span></label><input type="text" name="detailedAddress" className="af-input" value={formData.detailedAddress} onChange={handleChange} placeholder="e.g., 123 Sampaguita Street, Villa Esperanza Subdivision" /></div>
             </div>
-            <button className="af-next-btn" onClick={handleNext}>Next: Documents & Medical →</button>
+            <button className="af-next-btn" onClick={handleNext}>Next: Documents & Medical <IconArrowRight /></button>
           </div>
         )}
 
@@ -371,7 +645,7 @@ const ApplicationForm = () => {
               </div>
             )}
 
-            <button className="af-next-btn" onClick={handleNext}>Next: Review & Submit →</button>
+            <button className="af-next-btn" onClick={handleNext}>Next: Review & Submit <IconArrowRight /></button>
           </div>
         )}
       </div>
