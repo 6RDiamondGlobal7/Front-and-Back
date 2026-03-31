@@ -195,18 +195,36 @@ const Schedules = () => {
     setLoading(true);
     let hasError = false;
     const scheduledCount = stagedApplicants.length;
+    const locationValue = String(scheduleForm.location || '').trim();
 
     for (const app of stagedApplicants) {
-      // Tinanggal ko yung .single() kasi baka ito ang nagccause ng silent error
-      const { data: schedData, error: schedError } = await supabase
+      const schedulePayload = {
+        interview_schedule: app.assignedDate,
+        interview_time: app.timeSlot,
+        room_number: roomValue,
+        reminders: scheduleForm.reminders
+      };
+      if (locationValue) {
+        schedulePayload.location = locationValue;
+      }
+
+      let { data: schedData, error: schedError } = await supabase
         .from('schedule')
-        .insert([{
+        .insert([schedulePayload])
+        .select();
+
+      // Backward compatibility if schedule table does not have `location` column yet.
+      if (schedError && /column .*location/i.test(String(schedError.message || ''))) {
+        ({ data: schedData, error: schedError } = await supabase
+          .from('schedule')
+          .insert([{
             interview_schedule: app.assignedDate,
             interview_time: app.timeSlot,
             room_number: roomValue,
             reminders: scheduleForm.reminders
-        }])
-        .select();
+          }])
+          .select());
+      }
 
       if (schedError) {
         console.error("Insert Schedule Error:", schedError);

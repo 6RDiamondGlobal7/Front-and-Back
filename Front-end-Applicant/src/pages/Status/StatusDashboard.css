@@ -176,6 +176,11 @@
   color: #b91c1c;
   border-color: #fca5a5;
 }
+.sd-badge.cancelled {
+  background-color: #f1f5f9;
+  color: #475569;
+  border-color: #cbd5e1;
+}
 
 /* Main Content Box */
 .sd-content-box {
@@ -221,6 +226,67 @@
   background-color: #dcfce7; /* Green-100 */
   border: 1px solid #bbf7d0;
   color: #15803d; /* Green-700 */
+}
+
+.sd-interview-panel {
+  border: 1px solid #bfdbfe;
+  background: #f8fbff;
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.sd-interview-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #93c5fd;
+  background: #eaf3ff;
+  color: #1d4ed8;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+
+.sd-interview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.sd-interview-item {
+  background: #ffffff;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.sd-interview-item-wide {
+  grid-column: 1 / -1;
+}
+
+.sd-interview-note {
+  margin-top: 14px;
+  background: #eef4ff;
+  border: 1px solid #c7dcff;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.sd-interview-note strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #1e3a8a;
+  font-size: 14px;
+}
+
+.sd-interview-note p {
+  margin: 8px 0 0;
+  color: #334155;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 /* Grid Rows for Details */
@@ -300,4 +366,5 @@
   .sd-timeline-icon { width: 32px; height: 32px; }
   .sd-timeline-icon svg { width: 32px; height: 32px; }
   .sd-timeline-line { left: 15px; }
+  .sd-interview-grid { grid-template-columns: 1fr; }
 }
