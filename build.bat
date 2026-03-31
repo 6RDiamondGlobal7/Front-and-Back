@@ -34,6 +34,23 @@ if errorlevel 1 (
   exit /b 1
 )
 
+if /I "%NPM_CONFIG_OFFLINE%"=="true" (
+  echo [INFO] Detected NPM_CONFIG_OFFLINE=true, switching to online install for this build session...
+)
+set "NPM_CONFIG_OFFLINE="
+set "npm_config_offline="
+
+echo [INFO] Installing Front-end-HR dependencies ^(including devDependencies^)...
+call npm.cmd install --include=dev
+if errorlevel 1 (
+  set "BUILD_EXIT=%ERRORLEVEL%"
+  popd
+  echo.
+  echo [ERROR] Dependency install failed with exit code %BUILD_EXIT%.
+  pause
+  exit /b %BUILD_EXIT%
+)
+
 echo [INFO] Running production build...
 call npm.cmd run electron:build
 set "BUILD_EXIT=%ERRORLEVEL%"
