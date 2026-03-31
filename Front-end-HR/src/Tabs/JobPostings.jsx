@@ -1,4 +1,5 @@
-﻿import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import {
   Search,
@@ -128,6 +129,18 @@ const JobPostings = () => {
     return () => window.removeEventListener('click', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    const closeActionMenu = () => setActiveMenu(null);
+
+    window.addEventListener('resize', closeActionMenu);
+    window.addEventListener('scroll', closeActionMenu, true);
+
+    return () => {
+      window.removeEventListener('resize', closeActionMenu);
+      window.removeEventListener('scroll', closeActionMenu, true);
+    };
+  }, []);
+
   const departments = useMemo(() => {
     const values = Array.from(new Set(jobs.map((job) => job.department).filter(Boolean)));
     return ['All Departments', ...values.sort((a, b) => a.localeCompare(b))];
@@ -183,7 +196,33 @@ const JobPostings = () => {
   const toggleActionMenu = (e, jobId) => {
     e.stopPropagation();
     setActiveFilterMenu(null);
-    setActiveMenu(activeMenu === jobId ? null : jobId);
+
+    if (activeMenu?.jobId === jobId) {
+      setActiveMenu(null);
+      return;
+    }
+
+    const triggerRect = e.currentTarget.getBoundingClientRect();
+    const menuWidth = 210;
+    const estimatedMenuHeight = 220;
+    const viewportPadding = 16;
+    const shouldOpenUp = window.innerHeight - triggerRect.bottom < estimatedMenuHeight;
+
+    const left = Math.min(
+      Math.max(viewportPadding, triggerRect.right - menuWidth),
+      window.innerWidth - menuWidth - viewportPadding
+    );
+
+    const top = shouldOpenUp
+      ? Math.max(viewportPadding, triggerRect.top - estimatedMenuHeight - 8)
+      : Math.min(triggerRect.bottom + 8, window.innerHeight - estimatedMenuHeight - viewportPadding);
+
+    setActiveMenu({
+      jobId,
+      left,
+      top,
+      shouldOpenUp
+    });
   };
 
   const toggleFilterMenu = (e, type) => {
@@ -474,87 +513,66 @@ const JobPostings = () => {
 
         {!loading && !error && (
           <>
-            <table className="jobs-table">
-              <thead>
-                <tr>
-                  <th>JOB TITLE</th>
-                  <th>DEPARTMENT</th>
-                  <th>BRANCH</th>
-                  <th>CONTRACT TYPE</th>
-                  <th>APPLICANTS</th>
-                  <th>DATE POSTED</th>
-                  <th>STATUS</th>
-                  <th style={{ textAlign: 'center' }}>ACTIONS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paginatedJobs.map((job) => {
-                  const statusLabel = getStatusLabel(job.job_status);
-                  const isClosed = statusLabel === 'Closed';
+            <div className="jobs-table-scroll">
+              <table className="jobs-table">
+                <thead>
+                  <tr>
+                    <th>JOB TITLE</th>
+                    <th>DEPARTMENT</th>
+                    <th>BRANCH</th>
+                    <th>CONTRACT TYPE</th>
+                    <th>APPLICANTS</th>
+                    <th>DATE POSTED</th>
+                    <th>STATUS</th>
+                    <th style={{ textAlign: 'center' }}>ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedJobs.map((job) => {
+                    const statusLabel = getStatusLabel(job.job_status);
+                    const isClosed = statusLabel === 'Closed';
 
-                  return (
-                    <tr key={job.job_id}>
-                      <td className="bold-text">{job.job_title || 'N/A'}</td>
-                      <td>{job.department || 'N/A'}</td>
-                      <td>
-                        <div className="branch-cell">
-                          <MapPin size={14} color="#94a3b8" />
-                          <span>{job.branch || 'N/A'}</span>
-                        </div>
-                      </td>
-                      <td><span className="type-badge">{job.contract_type || 'N/A'}</span></td>
-                      <td>
-                        <div className="applicant-cell">
-                          <Users size={14} color="#5d9cec" />
-                          <strong>{job.total_applicants || 0}</strong> applicants
-                        </div>
-                      </td>
-                      <td>{formatDate(job.date_posted)}</td>
-                      <td><span className={`status-badge ${getStatusClassName(job.job_status)}`}>{statusLabel}</span></td>
-                      <td className="action-cell">
-                        <button className="dots-btn" type="button" onClick={(e) => toggleActionMenu(e, job.job_id)}>
-                          <MoreVertical size={18} />
-                        </button>
-                        {activeMenu === job.job_id && (
-                          <div className="action-dropdown" onClick={(e) => e.stopPropagation()}>
-                            <button className="drop-item view" type="button" onClick={() => openModal('view', job)}>
-                              <Eye size={16} /> View Description
-                            </button>
-                            <button className="drop-item" type="button" onClick={() => openModal('edit', job)}>
-                              <Edit size={16} /> Edit Job
-                            </button>
-                            {isClosed ? (
-                              <button className="drop-item open-action" type="button" onClick={() => handleOpenPosition(job)}>
-                                <Plus size={16} /> Open Position
-                              </button>
-                            ) : (
-                              <button className="drop-item close-action" type="button" onClick={() => openModal('close', job)}>
-                                <XCircle size={16} /> Close Position
-                              </button>
-                            )}
-                            <div className="drop-divider"></div>
-                            <button className="drop-item delete-action" type="button" onClick={() => openModal('delete', job)}>
-                              <Trash2 size={16} /> Delete
-                            </button>
+                    return (
+                      <tr key={job.job_id}>
+                        <td className="bold-text">{job.job_title || 'N/A'}</td>
+                        <td>{job.department || 'N/A'}</td>
+                        <td>
+                          <div className="branch-cell">
+                            <MapPin size={14} color="#94a3b8" />
+                            <span>{job.branch || 'N/A'}</span>
                           </div>
-                        )}
+                        </td>
+                        <td><span className="type-badge">{job.contract_type || 'N/A'}</span></td>
+                        <td>
+                          <div className="applicant-cell">
+                            <Users size={14} color="#5d9cec" />
+                            <strong>{job.total_applicants || 0}</strong> applicants
+                          </div>
+                        </td>
+                        <td>{formatDate(job.date_posted)}</td>
+                        <td><span className={`status-badge ${getStatusClassName(job.job_status)}`}>{statusLabel}</span></td>
+                        <td className="action-cell">
+                          <button className="dots-btn" type="button" onClick={(e) => toggleActionMenu(e, job.job_id)}>
+                            <MoreVertical size={18} />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {filteredJobs.length === 0 && (
+                    <tr>
+                      <td colSpan={8}>
+                        <div className="no-results">
+                          <h3>No job postings found</h3>
+                          <p>Try changing search text or filters.</p>
+                        </div>
                       </td>
                     </tr>
-                  );
-                })}
-
-                {filteredJobs.length === 0 && (
-                  <tr>
-                    <td colSpan={8}>
-                      <div className="no-results">
-                        <h3>No job postings found</h3>
-                        <p>Try changing search text or filters.</p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+            </div>
 
             <div className="table-footer">
               <span className="pagination-info">
@@ -596,6 +614,43 @@ const JobPostings = () => {
           </>
         )}
       </div>
+
+      {activeMenu && (() => {
+        const job = jobs.find((item) => item.job_id === activeMenu.jobId);
+        if (!job) return null;
+
+        const statusLabel = getStatusLabel(job.job_status);
+        const isClosed = statusLabel === 'Closed';
+
+        return createPortal(
+          <div
+            className={`action-dropdown action-dropdown-portal ${activeMenu.shouldOpenUp ? 'open-up' : ''}`}
+            style={{ top: `${activeMenu.top}px`, left: `${activeMenu.left}px` }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button className="drop-item view" type="button" onClick={() => openModal('view', job)}>
+              <Eye size={16} /> View Description
+            </button>
+            <button className="drop-item" type="button" onClick={() => openModal('edit', job)}>
+              <Edit size={16} /> Edit Job
+            </button>
+            {isClosed ? (
+              <button className="drop-item open-action" type="button" onClick={() => handleOpenPosition(job)}>
+                <Plus size={16} /> Open Position
+              </button>
+            ) : (
+              <button className="drop-item close-action" type="button" onClick={() => openModal('close', job)}>
+                <XCircle size={16} /> Close Position
+              </button>
+            )}
+            <div className="drop-divider"></div>
+            <button className="drop-item delete-action" type="button" onClick={() => openModal('delete', job)}>
+              <Trash2 size={16} /> Delete
+            </button>
+          </div>,
+          document.body
+        );
+      })()}
 
       {activeModal === 'create' && (
         <div className="modal-overlay" onClick={closeModal}>
@@ -769,3 +824,9 @@ const JobPostings = () => {
 };
 
 export default JobPostings;
+
+
+
+
+
+

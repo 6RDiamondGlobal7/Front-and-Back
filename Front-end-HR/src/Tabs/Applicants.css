@@ -107,8 +107,15 @@
   border-radius: 18px;
 }
 
+.table-scroll-shell {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
 .applicants-table {
   width: 100%;
+  min-width: 1240px;
   border-collapse: collapse;
 }
 
@@ -181,6 +188,27 @@
 .applicants-table td:nth-child(2) {
   min-width: 140px;
   white-space: nowrap;
+}
+
+.applicants-table th:nth-child(3),
+.applicants-table td:nth-child(3) {
+  min-width: 250px;
+}
+
+.applicants-table th:nth-child(4),
+.applicants-table td:nth-child(4),
+.applicants-table th:nth-child(5),
+.applicants-table td:nth-child(5),
+.applicants-table th:nth-child(7),
+.applicants-table td:nth-child(7),
+.applicants-table th:nth-child(8),
+.applicants-table td:nth-child(8) {
+  white-space: nowrap;
+}
+
+.applicants-table th:nth-child(6),
+.applicants-table td:nth-child(6) {
+  min-width: 180px;
 }
 
 .applicants-table tr:last-child td {
@@ -530,6 +558,10 @@
   color: #fff;
 }
 
+.interview-action {
+  background: linear-gradient(135deg, #9b6bff 0%, #7d4ef2 100%);
+}
+
 .hire-action {
   background: linear-gradient(135deg, #2ac67f 0%, #18b66d 100%);
 }
@@ -546,10 +578,6 @@
 }
 
 @media (max-width: 900px) {
-  .table-wrapper {
-    overflow-x: auto;
-  }
-
   .pagination-container,
   .app-modal-footer {
     flex-direction: column;

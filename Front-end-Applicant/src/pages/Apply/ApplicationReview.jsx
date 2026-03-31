@@ -9,8 +9,10 @@ const IconFileBlue = () => ( <svg width="18" height="18" viewBox="0 0 24 24" fil
 const IconCheckCircle = () => ( <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> );
 const IconCheckCircleBlue = () => ( <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#4A90E2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> );
 const IconCloseDark = () => ( <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> );
+const IconWarningLarge = () => ( <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg> );
 const IconFile = () => ( <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4A90E2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg> );
 const IconClose = () => ( <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg> );
+const IconArrowLeft = () => ( <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"></path><path d="m12 19-7-7 7-7"></path></svg> );
 
 const ApplicationReview = () => {
   const navigate = useNavigate();
@@ -36,35 +38,24 @@ const ApplicationReview = () => {
 
   const [agreed, setAgreed] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showIncomplete, setShowIncomplete] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showSample, setShowSample] = useState(false);
   const [signature, setSignature] = useState("");
-  const [signatureError, setSignatureError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const normalizeName = (value) => String(value || '').trim().replace(/\s+/g, ' ').toUpperCase();
-  const expectedSignature = normalizeName(`${formData.firstName || ''} ${formData.lastName || ''}`);
 
   const handleBack = () => {
     localStorage.setItem('formStep', '4');
-    navigate(`/apply/${branch}/${roleId}/form`);
+    navigate(`/apply/${branch}/${roleId}/form`, { state: formData });
   };
 
   // --- SUBMIT FUNCTION WITH FILES ---
   const handleConfirmAction = async () => {
-    const typedSignature = normalizeName(signature);
-
-    if (!typedSignature) {
-      setSignatureError('Please type your full name to confirm your application.');
+    if (!signature.trim()) {
+      setShowConfirm(false);
+      setTimeout(() => setShowIncomplete(true), 100);
       return;
-    }
-
-    if (!expectedSignature || typedSignature !== expectedSignature) {
-      setSignatureError(`Name mismatch. Please type: ${expectedSignature || 'FIRST NAME LAST NAME'}`);
-      return;
-    }
-
-    setSignatureError('');
+    } 
 
     setIsSubmitting(true);
 
@@ -129,7 +120,7 @@ const ApplicationReview = () => {
   return (
     <div className="af-page-container">
       <div className="af-top-nav">
-        <button className="af-back-btn" onClick={handleBack}>← Back to Application Form</button>
+        <button className="af-back-btn" onClick={handleBack}><IconArrowLeft /> Back to Application Form</button>
         <div className="af-progress-wrapper">
           <div className="af-progress-header-row"><span className="af-progress-text">Progress</span><span className="af-progress-step">Step 5 of 5</span></div>
           <div className="af-progress-bar"><div className="af-progress-fill" style={{ width: '100%' }}></div></div>
@@ -174,6 +165,29 @@ const ApplicationReview = () => {
             </div>
         </div>
 
+        {/* MEDICAL CONDITION */}
+        <div className="af-review-section-card">
+            <h3 className="af-section-title"><span className="af-dot">•</span> Medical Condition Declaration</h3>
+            <div className="af-review-grid-inner">
+                <div className="af-review-item">
+                    <label className="af-review-label-bold">MEDICAL CONDITION</label>
+                    <span>
+                      {formData.medicalCondition === 'yes'
+                        ? 'Yes'
+                        : formData.medicalCondition === 'no'
+                          ? 'No'
+                          : 'N/A'}
+                    </span>
+                </div>
+                {formData.medicalCondition === 'yes' && (
+                  <div className="af-review-item">
+                      <label className="af-review-label-bold">CONDITION DETAILS</label>
+                      <span>{formData.medicalDetails || 'N/A'}</span>
+                  </div>
+                )}
+            </div>
+        </div>
+
         {/* DOCUMENTS */}
         <div className="af-review-section-card">
             <h3 className="af-section-title"><span className="af-dot">•</span> Documents</h3>
@@ -206,9 +220,8 @@ const ApplicationReview = () => {
             <h3 className="af-modal-yellow-title">Confirmation</h3>
             <p className="af-modal-yellow-desc">Certify that information is correct.</p>
             <div className="af-modal-yellow-input-group">
-              <label>Type your full name exactly as entered in First Name and Last Name.</label>
-              <input type="text" placeholder={expectedSignature || 'FIRST NAME LAST NAME'} value={signature} onChange={(e) => { setSignature(e.target.value.toUpperCase()); setSignatureError(''); }} autoFocus />
-              {signatureError && <p style={{ color: '#b45309', marginTop: '8px', fontSize: '13px', fontWeight: 600 }}>{signatureError}</p>}
+                <label>Type your full name (in capital letters)</label>
+                <input type="text" placeholder="FIRST NAME LAST NAME" value={signature} onChange={(e) => setSignature(e.target.value.toUpperCase())} autoFocus />
             </div>
             <div className="af-modal-yellow-actions">
               <button className="af-yellow-btn-cancel" onClick={() => setShowConfirm(false)}>Cancel</button>

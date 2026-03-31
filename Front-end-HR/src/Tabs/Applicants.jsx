@@ -58,7 +58,7 @@ const Applicants = () => {
   };
 
   const formatAppliedDate = (app) => {
-    const rawValue = app.appliedAt || app.created_at || app.application_date || app.date_applied || app.updated_at;
+    const rawValue = app.created_at || app.application_date || app.date_applied || app.updated_at;
     if (!rawValue) return 'N/A';
 
     const date = new Date(rawValue);
@@ -139,8 +139,8 @@ const Applicants = () => {
     }
 
     if (sortConfig.key === 'appliedDate') {
-      const aRaw = a.appliedAt || a.created_at || a.application_date || a.date_applied || a.updated_at;
-      const bRaw = b.appliedAt || b.created_at || b.application_date || b.date_applied || b.updated_at;
+      const aRaw = a.created_at || a.application_date || a.date_applied || a.updated_at;
+      const bRaw = b.created_at || b.application_date || b.date_applied || b.updated_at;
       const aTime = new Date(aRaw || 0).getTime();
       const bTime = new Date(bRaw || 0).getTime();
       const safeATime = Number.isNaN(aTime) ? 0 : aTime;
@@ -186,6 +186,13 @@ const Applicants = () => {
       applicantName: applicant.name,
       status
     });
+  };
+
+  const getConfirmationTone = (status) => {
+    if (status === 'Interview') return 'interview';
+    if (status === 'Rejected') return 'danger';
+    if (status === 'Hired') return 'success';
+    return 'warning';
   };
 
   return (
@@ -261,81 +268,83 @@ const Applicants = () => {
       </div>
 
       <div className="table-wrapper">
-        <table className="applicants-table">
-          <thead>
-            <tr>
-              <th>
-                <button type="button" className="sortable-header" onClick={() => handleSort('applicantNumber')} aria-label={getSortLabel('applicantNumber', 'Applicant Number')}>
-                  <span>Applicant Number</span>
-                  <ChevronsUpDown size={14} className={`sort-icon ${sortConfig.key === 'applicantNumber' ? 'active' : ''}`} />
-                </button>
-              </th>
-              <th>
-                <button type="button" className="sortable-header" onClick={() => handleSort('name')} aria-label={getSortLabel('name', 'Name')}>
-                  <span>Name</span>
-                  <ChevronsUpDown size={14} className={`sort-icon ${sortConfig.key === 'name' ? 'active' : ''}`} />
-                </button>
-              </th>
-              <th>Contact</th>
-              <th>
-                <button type="button" className="sortable-header" onClick={() => handleSort('appliedDate')} aria-label={getSortLabel('appliedDate', 'Applied Date')}>
-                  <span>Applied Date</span>
-                  <ChevronsUpDown size={14} className={`sort-icon ${sortConfig.key === 'appliedDate' ? 'active' : ''}`} />
-                </button>
-              </th>
-              <th>Status</th>
-              <th>Position</th>
-              <th>Branch</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan="8" className="no-data">Loading applicants...</td></tr>
-            ) : currentItems.length > 0 ? (
-              currentItems.map((app) => (
-                <tr key={app.id}>
-                  <td className="bold">{app.id}</td>
-                  <td className="bold">{app.name}</td>
-                  <td>
-                    <div className="contact-wrapper">
-                      <div className="contact-info">
-                        <Mail size={14} className="contact-icon" /> {app.email}
+        <div className="table-scroll-shell">
+          <table className="applicants-table">
+            <thead>
+              <tr>
+                <th>
+                  <button type="button" className="sortable-header" onClick={() => handleSort('applicantNumber')} aria-label={getSortLabel('applicantNumber', 'Applicant Number')}>
+                    <span>Applicant Number</span>
+                    <ChevronsUpDown size={14} className={`sort-icon ${sortConfig.key === 'applicantNumber' ? 'active' : ''}`} />
+                  </button>
+                </th>
+                <th>
+                  <button type="button" className="sortable-header" onClick={() => handleSort('name')} aria-label={getSortLabel('name', 'Name')}>
+                    <span>Name</span>
+                    <ChevronsUpDown size={14} className={`sort-icon ${sortConfig.key === 'name' ? 'active' : ''}`} />
+                  </button>
+                </th>
+                <th>Contact</th>
+                <th>
+                  <button type="button" className="sortable-header" onClick={() => handleSort('appliedDate')} aria-label={getSortLabel('appliedDate', 'Applied Date')}>
+                    <span>Applied Date</span>
+                    <ChevronsUpDown size={14} className={`sort-icon ${sortConfig.key === 'appliedDate' ? 'active' : ''}`} />
+                  </button>
+                </th>
+                <th>Status</th>
+                <th>Position</th>
+                <th>Branch</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan="8" className="no-data">Loading applicants...</td></tr>
+              ) : currentItems.length > 0 ? (
+                currentItems.map((app) => (
+                  <tr key={app.id}>
+                    <td className="bold">{app.id}</td>
+                    <td className="bold">{app.name}</td>
+                    <td>
+                      <div className="contact-wrapper">
+                        <div className="contact-info">
+                          <Mail size={14} className="contact-icon" /> {app.email}
+                        </div>
+                        <div className="contact-info">
+                          <Phone size={14} className="contact-icon" /> {app.phone}
+                        </div>
                       </div>
-                      <div className="contact-info">
-                        <Phone size={14} className="contact-icon" /> {app.phone}
+                    </td>
+                    <td>{formatAppliedDate(app)}</td>
+                    <td>
+                      <span className={`status-pill ${String(app.status || '').toLowerCase()}`}>
+                        {app.status}
+                      </span>
+                    </td>
+                    <td>{app.position}</td>
+                    <td>{app.branch}</td>
+                    <td>
+                      <div className="actions-wrapper">
+                        <button className="action-icon" title="View Details" onClick={() => setSelectedApplicant(app)}>
+                          <Eye size={18} />
+                        </button>
+                        <button
+                          className={`action-icon ${!app.resume_url ? 'disabled' : ''}`}
+                          title={app.resume_url ? 'Download Resume' : 'No Resume Uploaded'}
+                          onClick={() => handleDownloadResume(app)}
+                        >
+                          <Download size={18} />
+                        </button>
                       </div>
-                    </div>
-                  </td>
-                  <td>{formatAppliedDate(app)}</td>
-                  <td>
-                    <span className={`status-pill ${String(app.status || '').toLowerCase()}`}>
-                      {app.status}
-                    </span>
-                  </td>
-                  <td>{app.position}</td>
-                  <td>{app.branch}</td>
-                  <td>
-                    <div className="actions-wrapper">
-                      <button className="action-icon" title="View Details" onClick={() => setSelectedApplicant(app)}>
-                        <Eye size={18} />
-                      </button>
-                      <button
-                        className={`action-icon ${!app.resume_url ? 'disabled' : ''}`}
-                        title={app.resume_url ? 'Download Resume' : 'No Resume Uploaded'}
-                        onClick={() => handleDownloadResume(app)}
-                      >
-                        <Download size={18} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr><td colSpan="8" className="no-data">No applicants found matching filters.</td></tr>
-            )}
-          </tbody>
-        </table>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr><td colSpan="8" className="no-data">No applicants found matching filters.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
 
         <div className="pagination-container">
           <div className="pagination-info">
@@ -494,7 +503,7 @@ const Applicants = () => {
             {String(selectedApplicant.status || '').toLowerCase() === 'applied' && (
               <div className="app-modal-footer">
                 <button
-                  className="app-btn-approve footer-action"
+                  className="app-btn-approve interview-action footer-action"
                   onClick={() => openStatusConfirmation(selectedApplicant, 'Interview')}
                 >
                   Approve for Interview
@@ -533,7 +542,7 @@ const Applicants = () => {
         title={confirmAction ? `Confirm ${confirmAction.status}` : ''}
         message={confirmAction ? `Are you sure you want to mark ${confirmAction.applicantName || 'this applicant'} as ${confirmAction.status}?` : ''}
         confirmLabel={confirmAction ? `Yes, mark as ${confirmAction.status}` : 'Confirm'}
-        tone={confirmAction?.status === 'Hired' ? 'success' : 'warning'}
+        tone={getConfirmationTone(confirmAction?.status)}
         loading={statusUpdateLoading}
         onCancel={() => {
           if (!statusUpdateLoading) setConfirmAction(null);

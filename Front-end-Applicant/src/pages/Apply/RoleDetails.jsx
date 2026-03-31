@@ -2,6 +2,8 @@ import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import './ApplicationForm.css'; // Shared CSS
 
+const IconArrowRight = () => ( <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg> );
+const IconArrowLeft = () => ( <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"></path><path d="m12 19-7-7 7-7"></path></svg> );
 const IconCheckBlue = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4A90E2" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
 );
@@ -127,7 +129,7 @@ const RoleDetails = () => {
   return (
     <div className="af-page-container">
       <div className="af-top-nav">
-        <button className="af-back-btn" onClick={handleBack}>← Back to Role Selection</button>
+        <button className="af-back-btn" onClick={handleBack}><IconArrowLeft /> Back to Role Selection</button>
         <div className="af-progress-wrapper">
           <div className="af-progress-header-row">
             <span className="af-progress-text">Progress</span>
@@ -173,7 +175,7 @@ const RoleDetails = () => {
         </div>
 
         <button className="af-next-btn" onClick={handleProceed}>
-          Proceed to Application Form →
+          Proceed to Application Form <IconArrowRight />
         </button>
       </div>
     </div>

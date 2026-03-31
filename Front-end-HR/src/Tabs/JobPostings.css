@@ -148,11 +148,14 @@
 
 .filter-drop-menu,
 .action-dropdown {
-  position: absolute;
   background: #fff;
   border: 1px solid var(--hr-line);
   border-radius: 16px;
   box-shadow: var(--hr-shadow);
+}
+
+.filter-drop-menu {
+  position: absolute;
   z-index: 20;
 }
 
@@ -199,8 +202,15 @@
   overflow: visible;
 }
 
+.jobs-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
 .jobs-table {
   width: 100%;
+  min-width: 1120px;
   border-collapse: collapse;
 }
 
@@ -223,6 +233,33 @@
 
 .jobs-table tr:last-child td {
   border-bottom: none;
+}
+
+.jobs-table th:nth-child(1),
+.jobs-table td:nth-child(1) {
+  min-width: 220px;
+}
+
+.jobs-table th:nth-child(2),
+.jobs-table td:nth-child(2),
+.jobs-table th:nth-child(3),
+.jobs-table td:nth-child(3),
+.jobs-table th:nth-child(4),
+.jobs-table td:nth-child(4),
+.jobs-table th:nth-child(5),
+.jobs-table td:nth-child(5),
+.jobs-table th:nth-child(6),
+.jobs-table td:nth-child(6),
+.jobs-table th:nth-child(7),
+.jobs-table td:nth-child(7),
+.jobs-table th:nth-child(8),
+.jobs-table td:nth-child(8) {
+  white-space: nowrap;
+}
+
+.jobs-table th:nth-child(8),
+.jobs-table td:nth-child(8) {
+  min-width: 110px;
 }
 
 .bold-text {
@@ -285,11 +322,13 @@
 }
 
 .action-dropdown {
-  top: auto;
-  bottom: calc(100% + 8px);
-  right: 22px;
   width: 210px;
   overflow: hidden;
+}
+
+.action-dropdown-portal {
+  position: fixed;
+  z-index: 3000;
 }
 
 .drop-item {
@@ -554,10 +593,6 @@
 }
 
 @media (max-width: 900px) {
-  .table-card {
-    overflow-x: auto;
-  }
-
   .table-footer,
   .modal-footer,
   .modal-footer-split {

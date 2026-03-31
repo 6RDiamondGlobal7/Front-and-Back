@@ -1,9 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
 import './ApplyLanding.css';
 import logoImage from '../../assets/logo.png';
-import { getApiBaseUrl } from '../../config/api';
 
 /* --- ICONS --- */
 const IconArrowRight = () => (
@@ -146,13 +144,11 @@ const PrivacyModal = ({ isOpen, onClose, onProceed }) => {
 };
 
 /* --- Status Modal (Keep as is...) --- */
-const StatusModal = ({ isOpen, onClose, apiBaseUrl }) => {
+const StatusModal = ({ isOpen, onClose }) => {
   const [appNumber, setAppNumber] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [errors, setErrors] = useState({});
-  const [submitError, setSubmitError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
   if (!isOpen) return null;
@@ -165,41 +161,12 @@ const StatusModal = ({ isOpen, onClose, apiBaseUrl }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleLogin = async () => {
-    if (!validateForm()) return;
-
-    setSubmitting(true);
-    setSubmitError('');
-
-    try {
-      await axios.post(`${apiBaseUrl}/api/applicant-status`, {
-        applicantNo: appNumber.trim(),
-        password: password.trim()
-      });
-
-      sessionStorage.setItem('applicantStatusAuth', JSON.stringify({
-        applicantNo: appNumber.trim(),
-        password: password.trim()
-      }));
-
-      onClose();
-      navigate('/status/dashboard', {
-        state: { applicantNo: appNumber.trim(), password: password.trim() }
-      });
-    } catch (error) {
-      const statusCode = error?.response?.status;
-      const apiError = error?.response?.data?.error;
-      let message = apiError || 'Unable to login. Please check your credentials.';
-
-      if (!error?.response) {
-        message = `Cannot connect to server (${apiBaseUrl}). Make sure Back-end is running.`;
-      } else if (statusCode === 404) {
-        message = 'Status API not found on server. Restart/update Back-end and try again.';
+  const handleLogin = () => {
+    if (validateForm()) {
+      if (appNumber.trim() && password.trim()) {
+        onClose();
+        navigate('/status/dashboard');
       }
-
-      setSubmitError(message);
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -222,7 +189,6 @@ const StatusModal = ({ isOpen, onClose, apiBaseUrl }) => {
               onChange={(e) => {
                 setAppNumber(e.target.value);
                 if (errors.appNumber) setErrors(prev => ({ ...prev, appNumber: '' }));
-                if (submitError) setSubmitError('');
               }}
               placeholder="Enter your Applicant Number"
               className={`al-text-input ${errors.appNumber ? 'error' : ''}`}
@@ -239,7 +205,6 @@ const StatusModal = ({ isOpen, onClose, apiBaseUrl }) => {
                 onChange={(e) => {
                   setPassword(e.target.value);
                   if (errors.password) setErrors(prev => ({ ...prev, password: '' }));
-                  if (submitError) setSubmitError('');
                 }}
                 placeholder="Enter your Password"
                 className={`al-text-input ${errors.password ? 'error' : ''}`}
@@ -255,10 +220,8 @@ const StatusModal = ({ isOpen, onClose, apiBaseUrl }) => {
             Your applicant number and password was sent to your email after submitting your application
           </div>
 
-          {submitError && <div className="al-error-message"><IconAlert /> {submitError}</div>}
-
-          <button disabled={!appNumber.trim() || !password.trim() || submitting} className="al-btn-login-gold" onClick={handleLogin}>
-            {submitting ? 'Logging in...' : 'Login'}
+          <button disabled={!appNumber.trim() || !password.trim()} className="al-btn-login-gold" onClick={handleLogin}>
+            Login
           </button>
         </div>
       </div>
@@ -268,7 +231,6 @@ const StatusModal = ({ isOpen, onClose, apiBaseUrl }) => {
 
 /* --- Main Application Component --- */
 const ApplyLanding = () => {
-  const API_BASE_URL = getApiBaseUrl();
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showStatus, setShowStatus] = useState(false);
   const navigate = useNavigate();
@@ -278,21 +240,9 @@ const ApplyLanding = () => {
   };
 
   const handleProceed = () => {
-    axios.post(`${API_BASE_URL}/api/site-views`, {
-      action: 'PROCEED_OPEN_ROLES',
-      page: 'apply-landing'
-    }).catch(() => {});
-
     setShowPrivacy(false);
     navigate('/apply/branch');
   };
-
-  useEffect(() => {
-    axios.post(`${API_BASE_URL}/api/site-views`, {
-      action: 'APPLY_PAGE_VISIT',
-      page: 'apply-landing'
-    }).catch(() => {});
-  }, [API_BASE_URL]);
 
   return (
     <div className="al-page-container">
@@ -359,7 +309,6 @@ const ApplyLanding = () => {
       <StatusModal
         isOpen={showStatus}
         onClose={() => setShowStatus(false)}
-        apiBaseUrl={API_BASE_URL}
       />
     </div>
   );
