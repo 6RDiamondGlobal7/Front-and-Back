@@ -1,30 +1,32 @@
 const supabase = require('../config/supabaseClient');
+const nodemailer = require('nodemailer'); // 1. Import Nodemailer
 
-// --- Helper Function: Upload Single File ---
+// ==========================================
+// --- Email Transporter Configuration ---
+// ==========================================
+const transporter = nodemailer.createTransport({
+    service: 'gmail', 
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
+
+// ==========================================
+// --- Helper Functions ---
+// ==========================================
 const uploadFileToSupabase = async (fileObject) => {
     if (!fileObject) return null;
-    
     const file = fileObject[0];
     const fileName = `${Date.now()}_${file.originalname}`;
     
-    const { data, error } = await supabase
-        .storage
-        .from('resumes')
-        .upload(fileName, file.buffer, {
-            contentType: file.mimetype
-        });
-
+    const { data, error } = await supabase.storage.from('resumes').upload(fileName, file.buffer, { contentType: file.mimetype });
     if (error) throw error;
 
-    const { data: publicUrlData } = supabase
-        .storage
-        .from('resumes')
-        .getPublicUrl(fileName);
-        
+    const { data: publicUrlData } = supabase.storage.from('resumes').getPublicUrl(fileName);
     return publicUrlData.publicUrl;
 };
 
-// --- Helper Functions for Reports ---
 const formatDate = (value) => {
     if (!value) return 'N/A';
     const date = new Date(value);
@@ -88,49 +90,32 @@ const applicantMatchesJob = (applicant, job) => {
     const applicantAsTitle = normalizeText(ROLE_ID_TO_TITLE[applicantPosition]);
     const possibleRoleIdsForTitle = TITLE_TO_ROLE_IDS[jobTitle] || [];
 
-    const positionMatches =
-        applicantPosition === jobTitle ||
-        applicantAsTitle === jobTitle ||
-        possibleRoleIdsForTitle.includes(applicantPosition);
-
+    const positionMatches = applicantPosition === jobTitle || applicantAsTitle === jobTitle || possibleRoleIdsForTitle.includes(applicantPosition);
     if (!positionMatches) return false;
 
     const applicantBranch = normalizeText(applicant.branch);
     const jobBranch = normalizeText(job.branch);
-
     if (applicantBranch && jobBranch) return applicantBranch === jobBranch;
     return true;
 };
 
 const buildJobPostingsSnapshot = async () => {
-    const { data: jobs, error: jobsError } = await supabase
-        .from('jobpostings')
-        .select('*')
-        .order('date_posted', { ascending: false });
+    const { data: jobs, error: jobsError } = await supabase.from('jobpostings').select('*').order('date_posted', { ascending: false });
     if (jobsError) throw jobsError;
 
-    const { data: applicants, error: applicantsError } = await supabase
-        .from('applicant')
-        .select('applicant_no, position_applied, branch');
+    const { data: applicants, error: applicantsError } = await supabase.from('applicant').select('applicant_no, position_applied, branch');
     if (applicantsError) throw applicantsError;
 
-    const { data: viewEvents, error: viewEventsError } = await supabase
-        .from('status')
-        .select('applicant_no')
-        .like('applicant_no', 'VIEW-%');
+    const { data: viewEvents, error: viewEventsError } = await supabase.from('status').select('applicant_no').like('applicant_no', 'VIEW-%');
     if (viewEventsError) throw viewEventsError;
 
     const jobsWithCounts = (jobs || []).map((job) => {
         const applicantCount = (applicants || []).filter((applicant) => applicantMatchesJob(applicant, job)).length;
-        return {
-            ...job,
-            total_applicants: applicantCount
-        };
+        return { ...job, total_applicants: applicantCount };
     });
 
     const activeJobPosts = jobsWithCounts.filter((job) => isJobActive(job.job_status)).length;
     const totalApplications = jobsWithCounts.reduce((sum, job) => sum + (job.total_applicants || 0), 0);
-
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
     const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1).getTime();
@@ -142,262 +127,126 @@ const buildJobPostingsSnapshot = async () => {
         return count;
     }, 0);
 
-    return {
-        summary: {
-            activeJobPosts,
-            totalApplications,
-            viewsThisMonth
-        },
-        jobs: jobsWithCounts
-    };
+    return { summary: { activeJobPosts, totalApplications, viewsThisMonth }, jobs: jobsWithCounts };
 };
 
 const getPeriodConfig = ({ reportType, month, quarter, year }) => {
     const now = new Date();
-    const currentYear = now.getFullYear();
-    const safeYear = toIntegerInRange(year, 2000, 2100, currentYear);
+    const safeYear = toIntegerInRange(year, 2000, 2100, now.getFullYear());
     const normalizedType = String(reportType || 'monthly').toLowerCase();
-    const monthNames = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
-    ];
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
     if (normalizedType === 'annual') {
-        const start = `${safeYear}-01-01`;
-        const end = `${safeYear + 1}-01-01`;
-        return {
-            reportType: 'annual',
-            startDate: start,
-            endDate: end,
-            label: `${safeYear} Annual Report`,
-            filter: { year: safeYear }
-        };
+        return { reportType: 'annual', startDate: `${safeYear}-01-01`, endDate: `${safeYear + 1}-01-01`, label: `${safeYear} Annual Report`, filter: { year: safeYear } };
     }
-
     if (normalizedType === 'quarterly') {
         const safeQuarter = toIntegerInRange(quarter, 1, 4, Math.floor(now.getMonth() / 3) + 1);
         const startMonth = (safeQuarter - 1) * 3;
         const endMonth = startMonth + 3;
-        const start = new Date(Date.UTC(safeYear, startMonth, 1)).toISOString().slice(0, 10);
-        const end = new Date(Date.UTC(safeYear, endMonth, 1)).toISOString().slice(0, 10);
-        return {
-            reportType: 'quarterly',
-            startDate: start,
-            endDate: end,
-            label: `Q${safeQuarter} ${safeYear} Report`,
-            filter: { year: safeYear, quarter: safeQuarter }
-        };
+        return { reportType: 'quarterly', startDate: new Date(Date.UTC(safeYear, startMonth, 1)).toISOString().slice(0, 10), endDate: new Date(Date.UTC(safeYear, endMonth, 1)).toISOString().slice(0, 10), label: `Q${safeQuarter} ${safeYear} Report`, filter: { year: safeYear, quarter: safeQuarter } };
     }
-
     const safeMonth = toIntegerInRange(month, 1, 12, now.getMonth() + 1);
-    const start = new Date(Date.UTC(safeYear, safeMonth - 1, 1)).toISOString().slice(0, 10);
-    const end = new Date(Date.UTC(safeYear, safeMonth, 1)).toISOString().slice(0, 10);
-    return {
-        reportType: 'monthly',
-        startDate: start,
-        endDate: end,
-        label: `${monthNames[safeMonth - 1]} ${safeYear} Report`,
-        filter: { year: safeYear, month: safeMonth }
-    };
+    return { reportType: 'monthly', startDate: new Date(Date.UTC(safeYear, safeMonth - 1, 1)).toISOString().slice(0, 10), endDate: new Date(Date.UTC(safeYear, safeMonth, 1)).toISOString().slice(0, 10), label: `${monthNames[safeMonth - 1]} ${safeYear} Report`, filter: { year: safeYear, month: safeMonth } };
 };
 
 const normalizeBranch = (value) => String(value || '').trim().toLowerCase();
 
 const extractApplicantStatus = (applicantRow) => {
     let realStatus = 'Applied';
-    if (
-        applicantRow &&
-        applicantRow.applicantfacttable &&
-        applicantRow.applicantfacttable.length > 0 &&
-        applicantRow.applicantfacttable[0].status
-    ) {
+    if (applicantRow && applicantRow.applicantfacttable && applicantRow.applicantfacttable.length > 0 && applicantRow.applicantfacttable[0].status) {
         const s = applicantRow.applicantfacttable[0].status;
         if (s.interview === 1) realStatus = 'Interview';
         else if (s.hired === 1) realStatus = 'Hired';
         else if (s.rejected === 1) realStatus = 'Rejected';
-        else if (s.applied === 1) realStatus = 'Applied';
     }
     return realStatus;
 };
 
 const inferAppliedAtFromApplicant = (applicantRow) => {
     if (!applicantRow) return null;
-
-    const eventId = String(applicantRow.applicant_no || '');
-    const tsMatch = eventId.match(/^APP-(\d+)$/);
+    const tsMatch = String(applicantRow.applicant_no || '').match(/^APP-(\d+)$/);
     if (tsMatch) {
         const ts = Number.parseInt(tsMatch[1], 10);
         if (!Number.isNaN(ts)) return new Date(ts).toISOString();
     }
-
     return null;
 };
 
-// 1. Test Database Connection
+// ==========================================
+// --- API Routes / Controllers ---
+// ==========================================
+
 exports.testDb = async (req, res) => {
     try {
         const { data, error } = await supabase.from('jobpostings').select('job_id').limit(1);
         if (error) throw error;
-        res.json({ status: "Success", message: "Connected to Supabase!", data });
-    } catch (err) {
-        res.status(500).json({ status: "Error", error: err.message });
-    }
+        res.json({ status: "Success", message: "Connected!", data });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-// 2. Get Jobs
 exports.getJobs = async (req, res) => {
-    try {
-        const snapshot = await buildJobPostingsSnapshot();
-        res.json(snapshot.jobs);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    try { res.json((await buildJobPostingsSnapshot()).jobs); } 
+    catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-// 2b. Get Job Postings Dashboard Data
 exports.getJobPostingsDashboard = async (req, res) => {
-    try {
-        const snapshot = await buildJobPostingsSnapshot();
-        res.json(snapshot);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    try { res.json(await buildJobPostingsSnapshot()); } 
+    catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-// 2c. Record a Job View Event
 exports.recordJobView = async (req, res) => {
     const { roleId, branch } = req.body || {};
-    if (!roleId) {
-        return res.status(400).json({ error: 'roleId is required' });
-    }
-
+    if (!roleId) return res.status(400).json({ error: 'roleId required' });
     try {
-        const timestamp = Date.now();
-        const eventId = `VIEW-${timestamp}-${Math.random().toString(36).slice(2, 8)}`;
-        const payload = `JOB_VIEW|role=${String(roleId)}|branch=${String(branch || '')}`;
-
-        const { error } = await supabase
-            .from('status')
-            .insert([{
-                applicant_no: eventId,
-                applicant_name: payload,
-                applied: 0,
-                interview: 0,
-                hired: 0,
-                rejected: 0
-            }]);
-
+        const eventId = `VIEW-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const { error } = await supabase.from('status').insert([{ applicant_no: eventId, applicant_name: `JOB_VIEW|role=${roleId}|branch=${branch || ''}`, applied: 0, interview: 0, hired: 0, rejected: 0 }]);
         if (error) throw error;
-
-        res.status(201).json({ message: 'Job view recorded' });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+        res.status(201).json({ message: 'View recorded' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-// 2d. Create Job Posting
 exports.createJobPosting = async (req, res) => {
     const { job_title, department, contract_type, branch } = req.body || {};
-
-    if (!job_title || !department || !contract_type || !branch) {
-        return res.status(400).json({ error: 'job_title, department, contract_type, and branch are required' });
-    }
-
     try {
-        const payload = {
-            job_title: String(job_title).trim(),
-            department: String(department).trim(),
-            contract_type: String(contract_type).trim(),
-            branch: String(branch).trim(),
-            date_posted: new Date().toISOString().slice(0, 10),
-            job_status: true,
-            total_applicants: 0
-        };
-
-        const { data, error } = await supabase
-            .from('jobpostings')
-            .insert([payload])
-            .select()
-            .single();
-
+        const { data, error } = await supabase.from('jobpostings').insert([{ job_title, department, contract_type, branch, date_posted: new Date().toISOString().slice(0, 10), job_status: true, total_applicants: 0 }]).select().single();
         if (error) throw error;
-        res.status(201).json({ message: 'Job posting created successfully', job: data });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+        res.status(201).json({ message: 'Created successfully', job: data });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-// 2e. Update Job Posting
 exports.updateJobPosting = async (req, res) => {
-    const { id } = req.params;
-    const { department, contract_type } = req.body || {};
-
     try {
-        const payload = {};
-        if (department !== undefined) payload.department = department;
-        if (contract_type !== undefined) payload.contract_type = contract_type;
-
-        const { data, error } = await supabase
-            .from('jobpostings')
-            .update(payload)
-            .eq('job_id', id)
-            .select()
-            .single();
-
+        const { data, error } = await supabase.from('jobpostings').update(req.body).eq('job_id', req.params.id).select().single();
         if (error) throw error;
-        res.json({ message: 'Job posting updated successfully', job: data });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+        res.json({ message: 'Updated successfully', job: data });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-// 2f. Update Job Status
 exports.updateJobStatus = async (req, res) => {
-    const { id } = req.params;
-    const { job_status } = req.body || {};
-
     try {
-        const { data, error } = await supabase
-            .from('jobpostings')
-            .update({ job_status: Boolean(job_status) })
-            .eq('job_id', id)
-            .select()
-            .single();
-
+        const { data, error } = await supabase.from('jobpostings').update({ job_status: Boolean(req.body.job_status) }).eq('job_id', req.params.id).select().single();
         if (error) throw error;
-        res.json({ message: 'Job status updated successfully', job: data });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+        res.json({ message: 'Status updated', job: data });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-// 2g. Delete Job Posting
 exports.deleteJobPosting = async (req, res) => {
-    const { id } = req.params;
-
     try {
-        const { error } = await supabase
-            .from('jobpostings')
-            .delete()
-            .eq('job_id', id);
-
+        const { error } = await supabase.from('jobpostings').delete().eq('job_id', req.params.id);
         if (error) throw error;
-        res.json({ message: 'Job posting deleted successfully' });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+        res.json({ message: 'Deleted successfully' });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-// 3. Submit Application
+// ==========================================
+// 2. Submit Application WITH AUTOMATED EMAIL
+// ==========================================
 exports.submitApplication = async (req, res) => {
     const files = req.files || {};
-    
     const {
-        firstName, lastName, middleInitial, suffix,
-        nationality, birthday, age, email, contactNumber,
-        region, province, city, barangay, detailedAddress,
-        medicalCondition, medicalDetails,
-        branch, positionApplied 
+        firstName, lastName, middleInitial, suffix, nationality, birthday, age, 
+        email, contactNumber, region, province, city, barangay, detailedAddress,
+        medicalCondition, medicalDetails, branch, positionApplied 
     } = req.body;
 
     try {
@@ -411,59 +260,57 @@ exports.submitApplication = async (req, res) => {
 
         const cleanAge = parseInt(age) || 0; 
         const cleanContact = contactNumber ? contactNumber.replace(/\D/g, '') : null;
-        const safeMiddleInitial = middleInitial ? middleInitial.substring(0, 5) : null;
-        const safeSuffix = suffix ? suffix.substring(0, 10) : null;
 
-        // 1. Insert sa Applicant table
-        const { error: appError } = await supabase
-            .from('applicant') 
-            .insert([{ 
-                applicant_no: applicantNo,
-                password: tempPassword,
-                first_name: firstName,
-                last_name: lastName,
-                middle_initial: safeMiddleInitial,
-                suffix: safeSuffix,
-                nationality: nationality,
-                birthday: birthday,
-                age: cleanAge,
-                email: email,
-                contact_number: cleanContact,
-                region: region,
-                province: province,
-                city_municipality: city,
-                barangay: barangay,
-                detailed_address: detailedAddress,
-                resume_url: resumeUrl,
-                cover_letter_url: coverLetterUrl,
-                prc_id_url: prcIdUrl,
-                medical_condition: medicalCondition || 'no',
-                medical_details: medicalDetails || null,
-                branch: branch || 'Not specified',
-                position_applied: positionApplied || 'Not specified'
-            }]);
-
+        // A. Save Applicant Data
+        const { error: appError } = await supabase.from('applicant').insert([{ 
+            applicant_no: applicantNo, password: tempPassword, first_name: firstName, last_name: lastName,
+            middle_initial: middleInitial ? middleInitial.substring(0, 5) : null, suffix: suffix ? suffix.substring(0, 10) : null,
+            nationality, birthday, age: cleanAge, email, contact_number: cleanContact,
+            region, province, city_municipality: city, barangay, detailed_address: detailedAddress,
+            resume_url: resumeUrl, cover_letter_url: coverLetterUrl, prc_id_url: prcIdUrl,
+            medical_condition: medicalCondition || 'no', medical_details: medicalDetails || null,
+            branch: branch || 'Not specified', position_applied: positionApplied || 'Not specified'
+        }]);
         if (appError) throw appError;
 
-        // 2. Insert sa Status table
-        const { data: newStatus, error: statusError } = await supabase
-            .from('status')
-            .insert([{ 
-                applied: 1, interview: 0, hired: 0, rejected: 0,
-                applicant_no: applicantNo,
-                applicant_name: fullName 
-            }])
-            .select()
-            .single();
+        // B. Save Status
+        const { data: newStatus, error: statusError } = await supabase.from('status').insert([{ 
+            applied: 1, interview: 0, hired: 0, rejected: 0, applicant_no: applicantNo, applicant_name: fullName 
+        }]).select().single();
 
-        // 3. Link sa applicantfacttable
         if (!statusError && newStatus) {
-            await supabase
-                .from('applicantfacttable')
-                .insert([{ 
-                    applicant_no: applicantNo,
-                    status_id: newStatus.status_id
-                }]);
+            await supabase.from('applicantfacttable').insert([{ applicant_no: applicantNo, status_id: newStatus.status_id }]);
+        }
+
+        // C. Send the Automated Email
+        if (email) { 
+            try {
+                const mailOptions = {
+                    from: `"6R Diamond Recruitment" <${process.env.EMAIL_USER}>`, 
+                    to: email, 
+                    subject: 'Application Received - Login Credentials',
+                    html: `
+                        <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: auto;">
+                            <h2 style="color: #4A90E2;">Hello ${firstName},</h2>
+                            <p>Thank you for submitting your application to <strong>6R Diamond International Cargo Logistics, Inc.</strong></p>
+                            <p>We have successfully received your documents. You can track the status of your application through our portal using the credentials below:</p>
+                            
+                            <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 20px 0;">
+                                <p style="margin: 0 0 10px 0;"><strong>Applicant Number:</strong> <span style="font-size: 18px; color: #1e293b;">${applicantNo}</span></p>
+                                <p style="margin: 0;"><strong>Password:</strong> <span style="font-size: 18px; color: #1e293b;">${tempPassword}</span></p>
+                            </div>
+                            
+                            <p style="font-size: 14px; color: #64748b;">Please keep these details secure. We will review your application and update your status on the portal.</p>
+                            <br/>
+                            <p>Best regards,<br/><strong>Human Resources Department</strong><br/>6R Diamond International</p>
+                        </div>
+                    `
+                };
+                await transporter.sendMail(mailOptions);
+                console.log(`Successfully sent credentials to applicant at: ${email}`);
+            } catch (emailErr) {
+                console.error("Warning: Failed to send email to applicant. Error: ", emailErr.message);
+            }
         }
 
         res.status(201).json({ message: "Application submitted!", applicantId: applicantNo });
@@ -473,267 +320,91 @@ exports.submitApplication = async (req, res) => {
     }
 };
 
-// 4. Get All Applicants
 exports.getApplicants = async (req, res) => {
     try {
-        // TAMA NA SYNTAX PANG JOIN NG STATUS TABLE
-        const { data, error } = await supabase
-            .from('applicant')
-            .select(`
-                *,
-                applicantfacttable (
-                    status ( applied, interview, hired, rejected )
-                )
-            `)
-            .order('applicant_no', { ascending: false });
-
+        const { data, error } = await supabase.from('applicant').select(`*, applicantfacttable (status (applied, interview, hired, rejected))`).order('applicant_no', { ascending: false });
         if (error) throw error;
-
-        const formattedData = data.map(app => {
-            let realStatus = 'Applied';
-            if (app.applicantfacttable && app.applicantfacttable.length > 0 && app.applicantfacttable[0].status) {
-                const s = app.applicantfacttable[0].status;
-                if (s.interview === 1) realStatus = 'Interview';
-                else if (s.hired === 1) realStatus = 'Hired';
-                else if (s.rejected === 1) realStatus = 'Rejected';
-                else if (s.applied === 1) realStatus = 'Applied';
-            }
-
-            return {
-                id: app.applicant_no || 'N/A',
-                name: `${app.first_name || ''} ${app.last_name || ''}`.trim(),
-                firstName: app.first_name,
-                lastName: app.last_name,
-                middleInitial: app.middle_initial,
-                nationality: app.nationality,
-                birthday: app.birthday,
-                age: app.age,
-                email: app.email || 'N/A',
-                phone: app.contact_number || 'N/A',
-                region: app.region,
-                province: app.province,
-                city: app.city_municipality,
-                barangay: app.barangay,
-                detailedAddress: app.detailed_address,
-                resume_url: app.resume_url,
-                cover_letter_url: app.cover_letter_url,
-                medicalCondition: app.medical_condition,
-                medicalDetails: app.medical_details,
-                status: realStatus, 
-                branch: app.branch || 'Not assigned',
-                position: app.position_applied || 'Not assigned'
-            };
-        });
-
-        res.json(formattedData);
-    } catch (err) {
-        console.error('Error fetching applicants:', err.message);
-        res.status(500).json({ error: err.message });
-    }
+        res.json(data.map(app => ({
+            id: app.applicant_no || 'N/A', name: `${app.first_name || ''} ${app.last_name || ''}`.trim(),
+            firstName: app.first_name, lastName: app.last_name, middleInitial: app.middle_initial,
+            nationality: app.nationality, birthday: app.birthday, age: app.age, email: app.email || 'N/A', phone: app.contact_number || 'N/A',
+            region: app.region, province: app.province, city: app.city_municipality, barangay: app.barangay,
+            detailedAddress: app.detailed_address, resume_url: app.resume_url, cover_letter_url: app.cover_letter_url,
+            medicalCondition: app.medical_condition, medicalDetails: app.medical_details,
+            status: extractApplicantStatus(app), branch: app.branch || 'Not assigned', position: app.position_applied || 'Not assigned'
+        })));
+    } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-// 5. Reports
 exports.getReports = async (req, res) => {
     try {
         const period = getPeriodConfig(req.query || {});
         const selectedBranch = normalizeBranch(req.query?.branch);
         const hasBranchFilter = selectedBranch && selectedBranch !== 'all';
-        const { data, error } = await supabase
-            .from('applicant')
-            .select(`
-                *,
-                applicantfacttable (
-                    status ( applied, interview, hired, rejected )
-                )
-            `)
-            .order('applicant_no', { ascending: false });
-
+        const { data, error } = await supabase.from('applicant').select(`*, applicantfacttable (status (applied, interview, hired, rejected))`);
         if (error) throw error;
 
         const startMs = new Date(`${period.startDate}T00:00:00.000Z`).getTime();
         const endMs = new Date(`${period.endDate}T00:00:00.000Z`).getTime();
 
-        const inferDate = (app) => {
-            if (app.created_at || app.createdAt) return app.created_at || app.createdAt;
-            const inferred = inferAppliedAtFromApplicant(app);
-            if (inferred) return inferred;
-            return null;
-        };
-
-        const records = (data || [])
-            .map((app) => {
-                const appliedRaw = inferDate(app);
-                const appliedMs = appliedRaw ? new Date(appliedRaw).getTime() : Number.NaN;
-                
-                let realStatus = 'Applied';
-                if (app.applicantfacttable && app.applicantfacttable.length > 0 && app.applicantfacttable[0].status) {
-                    const s = app.applicantfacttable[0].status;
-                    if (s.interview === 1) realStatus = 'Interview';
-                    else if (s.hired === 1) realStatus = 'Hired';
-                    else if (s.rejected === 1) realStatus = 'Rejected';
-                    else if (s.applied === 1) realStatus = 'Applied';
-                }
-
-                return {
-                    id: app.applicant_no || 'N/A',
-                    name: `${app.first_name || ''} ${app.last_name || ''}`.trim() || 'N/A',
-                    email: app.email || 'N/A',
-                    phone: app.contact_number || 'N/A',
-                    status: normalizeStatus(realStatus),
-                    position: app.position_applied || 'Not assigned',
-                    branch: app.branch || 'Not assigned',
-                    dateRaw: appliedRaw,
-                    appliedMs
-                };
-            })
-            .filter((row) => !Number.isNaN(row.appliedMs) && row.appliedMs >= startMs && row.appliedMs < endMs)
-            .filter((row) => !hasBranchFilter || normalizeBranch(row.branch) === selectedBranch)
-            .map((row) => ({
-                ...row,
-                date: formatDate(row.dateRaw)
-            }));
+        const records = (data || []).map((app) => {
+            const appliedRaw = app.created_at || app.createdAt || inferAppliedAtFromApplicant(app);
+            return {
+                id: app.applicant_no || 'N/A', name: `${app.first_name || ''} ${app.last_name || ''}`.trim() || 'N/A',
+                email: app.email || 'N/A', phone: app.contact_number || 'N/A', status: normalizeStatus(extractApplicantStatus(app)),
+                position: app.position_applied || 'Not assigned', branch: app.branch || 'Not assigned', dateRaw: appliedRaw,
+                appliedMs: appliedRaw ? new Date(appliedRaw).getTime() : Number.NaN
+            };
+        }).filter((row) => !Number.isNaN(row.appliedMs) && row.appliedMs >= startMs && row.appliedMs < endMs)
+          .filter((row) => !hasBranchFilter || normalizeBranch(row.branch) === selectedBranch)
+          .map((row) => ({ ...row, date: formatDate(row.dateRaw) }));
 
         const total = records.length;
-        const statusBreakdown = records.reduce((acc, item) => {
-            acc[item.status] = (acc[item.status] || 0) + 1;
-            return acc;
-        }, { Applied: 0, Interview: 0, Hired: 0, Rejected: 0 });
-
-        const summary = {
-            totalApplications: total,
-            newApplications: statusBreakdown.Applied,
-            interviewCount: statusBreakdown.Interview,
-            hiredCount: statusBreakdown.Hired,
-            rejectedCount: statusBreakdown.Rejected,
-            interviewRate: percentage(statusBreakdown.Interview, total),
-            hiringRate: percentage(statusBreakdown.Hired, total),
-            rejectionRate: percentage(statusBreakdown.Rejected, total)
-        };
+        const statusBreakdown = records.reduce((acc, item) => { acc[item.status] = (acc[item.status] || 0) + 1; return acc; }, { Applied: 0, Interview: 0, Hired: 0, Rejected: 0 });
 
         res.json({
-            meta: {
-                reportType: period.reportType,
-                label: period.label,
-                dateRange: { from: period.startDate, to: period.endDate },
-                filter: {
-                    ...period.filter,
-                    branch: hasBranchFilter ? selectedBranch : 'all'
-                }
-            },
-            summary,
-            statusBreakdown,
-            records
+            meta: { reportType: period.reportType, label: period.label, dateRange: { from: period.startDate, to: period.endDate }, filter: { ...period.filter, branch: hasBranchFilter ? selectedBranch : 'all' } },
+            summary: { totalApplications: total, newApplications: statusBreakdown.Applied, interviewCount: statusBreakdown.Interview, hiredCount: statusBreakdown.Hired, rejectedCount: statusBreakdown.Rejected, interviewRate: percentage(statusBreakdown.Interview, total), hiringRate: percentage(statusBreakdown.Hired, total), rejectionRate: percentage(statusBreakdown.Rejected, total) },
+            statusBreakdown, records
         });
-    } catch (err) {
-        console.error('Error generating report:', err.message);
-        res.status(500).json({ error: err.message });
-    }
+    } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-// 5b. Applicant Check Status (Applicant No + Password)
 exports.getApplicantStatus = async (req, res) => {
     const { applicantNo, password } = req.body || {};
-
-    if (!applicantNo || !password) {
-        return res.status(400).json({ error: 'applicantNo and password are required' });
-    }
-
+    if (!applicantNo || !password) return res.status(400).json({ error: 'Required' });
     try {
-        const { data: applicant, error } = await supabase
-            .from('applicant')
-            .select(`
-                applicant_no,
-                password,
-                first_name,
-                last_name,
-                branch,
-                position_applied,
-                applicantfacttable (
-                    status ( applied, interview, hired, rejected )
-                )
-            `)
-            .eq('applicant_no', applicantNo)
-            .maybeSingle();
-
+        const { data: applicant, error } = await supabase.from('applicant').select(`applicant_no, password, first_name, last_name, branch, position_applied, applicantfacttable (status (applied, interview, hired, rejected))`).eq('applicant_no', applicantNo).maybeSingle();
         if (error) throw error;
-        if (!applicant || applicant.password !== password) {
-            return res.status(401).json({ error: 'Invalid Applicant Number or Password' });
-        }
-
-        const status = extractApplicantStatus(applicant);
-        const applicantPayload = {
-            id: applicant.applicant_no,
-            name: `${applicant.first_name || ''} ${applicant.last_name || ''}`.trim(),
-            status,
-            branch: applicant.branch || 'Not assigned',
-            position: applicant.position_applied || 'Not assigned',
-            appliedAt: inferAppliedAtFromApplicant(applicant),
-            checkedAt: new Date().toISOString()
-        };
-
-        res.json({ applicant: applicantPayload });
-    } catch (err) {
-        console.error('Error fetching applicant status:', err.message);
-        res.status(500).json({ error: err.message });
-    }
+        if (!applicant || applicant.password !== password) return res.status(401).json({ error: 'Invalid' });
+        res.json({ applicant: { id: applicant.applicant_no, name: `${applicant.first_name || ''} ${applicant.last_name || ''}`.trim(), status: extractApplicantStatus(applicant), branch: applicant.branch || 'Not assigned', position: applicant.position_applied || 'Not assigned', appliedAt: inferAppliedAtFromApplicant(applicant), checkedAt: new Date().toISOString() } });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-// 6. Update Applicant Status
 exports.updateApplicantStatus = async (req, res) => {
-    const { id } = req.params; // APP-xxxx
-    const { status } = req.body;
-
     try {
-        let newStatusObj = { applied: 0, interview: 0, hired: 0, rejected: 0 };
-        if (status.toLowerCase() === 'interview') newStatusObj.interview = 1;
-        if (status.toLowerCase() === 'rejected') newStatusObj.rejected = 1;
-        if (status.toLowerCase() === 'hired') newStatusObj.hired = 1;
-        if (status.toLowerCase() === 'applied') newStatusObj.applied = 1;
-
-        const { data: factData } = await supabase
-            .from('applicantfacttable')
-            .select('status_id')
-            .eq('applicant_no', id)
-            .maybeSingle();
-
+        const { id } = req.params;
+        const status = (req.body.status || '').toLowerCase();
+        let newStatusObj = { applied: status === 'applied' ? 1 : 0, interview: status === 'interview' ? 1 : 0, hired: status === 'hired' ? 1 : 0, rejected: status === 'rejected' ? 1 : 0 };
+        
+        const { data: factData } = await supabase.from('applicantfacttable').select('status_id').eq('applicant_no', id).maybeSingle();
         if (factData && factData.status_id) {
-            const { error: updateError } = await supabase
-                .from('status')
-                .update(newStatusObj)
-                .eq('status_id', factData.status_id);
-            if (updateError) throw updateError;
+            await supabase.from('status').update(newStatusObj).eq('status_id', factData.status_id);
         } else {
-            // Safety fallback just in case
             const { data: appData } = await supabase.from('applicant').select('first_name, last_name').eq('applicant_no', id).single();
-            const fullName = appData ? `${appData.first_name} ${appData.last_name}`.trim() : 'Unknown';
             newStatusObj.applicant_no = id;
-            newStatusObj.applicant_name = fullName;
-
+            newStatusObj.applicant_name = appData ? `${appData.first_name} ${appData.last_name}`.trim() : 'Unknown';
             const { data: statusInsert } = await supabase.from('status').insert([newStatusObj]).select().single();
             await supabase.from('applicantfacttable').insert([{ applicant_no: id, status_id: statusInsert.status_id }]);
         }
-
-        res.json({ message: `Status updated to ${status} successfully` });
-    } catch (err) {
-        console.error('Error updating status:', err.message);
-        res.status(500).json({ error: err.message });
-    }
+        res.json({ message: `Status updated to ${status}` });
+    } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
-// 7. Employee Login
 exports.loginEmployee = async (req, res) => {
-    const { employeeId, password } = req.body;
-
     try {
-        const { data, error } = await supabase.from('employees').select('*').eq('employee_id', employeeId).single();
-        if (error || !data) return res.status(401).json({ error: 'Invalid Employee ID or Password' });
-        if (data.password !== password) return res.status(401).json({ error: 'Invalid Employee ID or Password' });
-
-        res.json({ 
-            message: "Login successful", 
-            user: { id: data.employee_id, name: `${data.first_name} ${data.last_name}`, role: data.role } 
-        });
-    } catch (err) {
-        res.status(500).json({ error: "Internal Server Error" });
-    }
+        const { data, error } = await supabase.from('employees').select('*').eq('employee_id', req.body.employeeId).single();
+        if (error || !data || data.password !== req.body.password) return res.status(401).json({ error: 'Invalid Credentials' });
+        res.json({ message: "Login successful", user: { id: data.employee_id, name: `${data.first_name} ${data.last_name}`, role: data.role } });
+    } catch (err) { res.status(500).json({ error: "Server Error" }); }
 };
