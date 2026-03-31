@@ -34,6 +34,39 @@ if errorlevel 1 (
   exit /b 1
 )
 
+if not exist "node_modules" (
+  echo [INFO] Front-end dependencies not found. Installing now...
+  if exist "package-lock.json" (
+    call npm.cmd ci
+    if errorlevel 1 (
+      echo [WARNING] npm ci failed, retrying with npm install...
+      call npm.cmd install
+    )
+  ) else (
+    call npm.cmd install
+  )
+
+  if errorlevel 1 (
+    echo.
+    echo [ERROR] Front-end dependency installation failed.
+    popd
+    pause
+    exit /b 1
+  )
+)
+
+if not exist "node_modules\.bin\vite.cmd" (
+  echo [INFO] Vite binary is missing. Repairing dependencies...
+  call npm.cmd install
+  if errorlevel 1 (
+    echo.
+    echo [ERROR] Could not install required dependencies (vite missing).
+    popd
+    pause
+    exit /b 1
+  )
+)
+
 echo [INFO] Running production build...
 call npm.cmd run electron:build
 set "BUILD_EXIT=%ERRORLEVEL%"
