@@ -491,10 +491,48 @@ exports.getApplicantStatus = async (req, res) => {
     const { applicantNo, password } = req.body || {};
     if (!applicantNo || !password) return res.status(400).json({ error: 'Required' });
     try {
-        const { data: applicant, error } = await supabase.from('applicant').select(`applicant_no, password, first_name, last_name, branch, position_applied, applicantfacttable (status (applied, interview, hired, rejected))`).eq('applicant_no', applicantNo).maybeSingle();
+        const { data: applicant, error } = await supabase
+            .from('applicant')
+            .select(`
+                applicant_no,
+                password,
+                first_name,
+                last_name,
+                branch,
+                position_applied,
+                applicantfacttable (
+                    status (applied, interview, hired, rejected),
+                    schedule:schedule_id (*)
+                )
+            `)
+            .eq('applicant_no', applicantNo)
+            .maybeSingle();
         if (error) throw error;
         if (!applicant || applicant.password !== password) return res.status(401).json({ error: 'Invalid' });
-        res.json({ applicant: { id: applicant.applicant_no, name: `${applicant.first_name || ''} ${applicant.last_name || ''}`.trim(), status: extractApplicantStatus(applicant), branch: applicant.branch || 'Not assigned', position: applicant.position_applied || 'Not assigned', appliedAt: inferAppliedAtFromApplicant(applicant), checkedAt: new Date().toISOString() } });
+
+        const fact = Array.isArray(applicant.applicantfacttable) ? applicant.applicantfacttable[0] : null;
+        const schedule = fact?.schedule || null;
+
+        res.json({
+            applicant: {
+                id: applicant.applicant_no,
+                name: `${applicant.first_name || ''} ${applicant.last_name || ''}`.trim(),
+                status: extractApplicantStatus(applicant),
+                branch: applicant.branch || 'Not assigned',
+                position: applicant.position_applied || 'Not assigned',
+                appliedAt: inferAppliedAtFromApplicant(applicant),
+                checkedAt: new Date().toISOString(),
+                interviewSchedule: schedule
+                    ? {
+                        date: schedule.interview_schedule || null,
+                        time: schedule.interview_time || null,
+                        location: schedule.location || null,
+                        room: schedule.room_number || null,
+                        reminders: schedule.reminders || null
+                    }
+                    : null
+            }
+        });
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
 

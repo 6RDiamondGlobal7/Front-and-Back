@@ -28,6 +28,7 @@ const Schedules = () => {
   const [selectedDate, setSelectedDate] = useState('');
   const [interviewSearchQuery, setInterviewSearchQuery] = useState('');
   const [interviewDateFilter, setInterviewDateFilter] = useState('');
+  const [interviewBranchFilter, setInterviewBranchFilter] = useState('Manila');
   
   // Staged for Time Slot Assignment (Right Panel)
   const [stagedApplicants, setStagedApplicants] = useState([]);
@@ -324,7 +325,9 @@ const Schedules = () => {
     const matchesSearch = !interviewSearchQuery || fullName.includes(interviewSearchQuery.toLowerCase()) || applicantNo.includes(interviewSearchQuery.toLowerCase());
     const scheduleDate = app.schedule?.interview_schedule || '';
     const matchesDate = !interviewDateFilter || scheduleDate === interviewDateFilter;
-    return matchesSearch && matchesDate;
+    const applicantBranch = normalizeBranch(app.applicant?.branch);
+    const matchesBranch = applicantBranch === normalizeBranch(interviewBranchFilter);
+    return matchesSearch && matchesDate && matchesBranch;
   });
 
   const filteredGroupedScheduled = filteredScheduledApplicants.reduce((groups, app) => {
@@ -506,6 +509,20 @@ const Schedules = () => {
               placeholder="Search by name or ID..."
               value={interviewSearchQuery}
               onChange={(e) => setInterviewSearchQuery(e.target.value)}
+            />
+          </div>
+          <div className="interview-branch-filter">
+            <CustomSelect
+              className="schedule-select"
+              icon={<MapPin size={18} />}
+              value={interviewBranchFilter}
+              onChange={setInterviewBranchFilter}
+              placeholder="Filter by Branch"
+              options={[
+                { value: 'Manila', label: 'Manila' },
+                { value: 'Cebu', label: 'Cebu' },
+                { value: 'Davao', label: 'Davao' }
+              ]}
             />
           </div>
           <div className="interview-date-filter">

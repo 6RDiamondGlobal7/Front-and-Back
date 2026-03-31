@@ -13,6 +13,24 @@ const IconMapPin = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="
 const IconUser = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>);
 const IconClipboard = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="2" width="6" height="4" rx="1" /><path d="M9 4H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2" /></svg>);
 
+const BRANCH_INTERVIEW_PRESETS = {
+  manila: {
+    location: 'Burke Building, Burke St, Binondo, Manila, 1006 Metro Manila',
+    room: '210',
+    reminders: 'Be on time.'
+  },
+  cebu: {
+    location: 'Cebu Business Park, Archbishop Reyes Ave, Cebu City, 6000 Cebu',
+    room: '306',
+    reminders: 'Be on time.'
+  },
+  davao: {
+    location: 'Abreeza Business Park, J.P. Laurel Ave, Davao City, 8000 Davao del Sur',
+    room: '402',
+    reminders: 'Be on time.'
+  }
+};
+
 const normalizeStatus = (value) => {
   const clean = String(value || '').trim().toLowerCase();
   if (clean === 'hired') return 'Hired';
@@ -20,6 +38,8 @@ const normalizeStatus = (value) => {
   if (clean === 'interview') return 'Interview';
   return 'Applied';
 };
+
+const normalizeBranchKey = (value) => String(value || '').trim().toLowerCase();
 
 const formatDateTime = (value) => {
   if (!value) return 'N/A';
@@ -218,15 +238,16 @@ const StatusDashboard = () => {
   };
 
   const interviewScheduled = hasInterviewDetails;
-  const interviewDate = interviewScheduled ? formatDateOnly(schedule?.date) : 'To be announced';
-  const interviewTime = interviewScheduled ? (schedule?.time || 'To be announced') : 'To be announced';
+  const fallbackSchedule = BRANCH_INTERVIEW_PRESETS[normalizeBranchKey(applicant?.branch)] || null;
+  const interviewDate = interviewScheduled ? formatDateOnly(schedule?.date) : 'For HR scheduling';
+  const interviewTime = interviewScheduled ? (schedule?.time || formatTimeRange(schedule?.date)) : 'Time will be shared by HR';
   const interviewLocation = interviewScheduled
     ? `${schedule?.location || `${applicant?.branch || 'Branch'} Office`}${schedule?.room ? ` - Room ${schedule.room}` : ''}`
-    : 'Pending assignment';
-  const interviewer = interviewScheduled ? 'Assigned HR Officer' : 'Pending assignment';
+    : `${fallbackSchedule?.location || `${applicant?.branch || 'Branch'} Office`}${fallbackSchedule?.room ? ` - Room ${fallbackSchedule.room}` : ''}`;
+  const interviewer = 'Assigned HR Officer';
   const interviewInstruction = interviewScheduled
     ? (schedule?.reminders || 'Arrive 10 minutes early and bring one valid ID.')
-    : 'Keep your line open. Our HR team will contact you once a schedule is available.';
+    : `${fallbackSchedule?.reminders || 'Be on time.'} Keep your line open. Our HR team will contact you once a schedule is available.`;
 
   return (
     <div className="sd-page-container">

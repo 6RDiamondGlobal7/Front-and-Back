@@ -422,13 +422,24 @@
 
 .interview-filter-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 258px;
+  grid-template-columns: minmax(0, 1fr) 220px 258px;
   gap: 14px;
 }
 
 .interview-search-box,
-.interview-date-filter {
+.interview-date-filter,
+.interview-branch-filter {
   position: relative;
+}
+
+.interview-branch-filter .custom-select-trigger {
+  min-height: 52px;
+  border-radius: 14px;
+  font-weight: 700;
+}
+
+.interview-branch-filter .custom-select-label {
+  font-weight: 700;
 }
 
 .interview-search-box .interview-search-icon {
