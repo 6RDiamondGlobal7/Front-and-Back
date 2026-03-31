@@ -164,8 +164,13 @@ const StatusModal = ({ isOpen, onClose }) => {
   const handleLogin = () => {
     if (validateForm()) {
       if (appNumber.trim() && password.trim()) {
+        const authPayload = {
+          applicantNo: appNumber.trim(),
+          password: password.trim()
+        };
+        sessionStorage.setItem('applicantStatusAuth', JSON.stringify(authPayload));
         onClose();
-        navigate('/status/dashboard');
+        navigate('/status/dashboard', { state: authPayload });
       }
     }
   };
