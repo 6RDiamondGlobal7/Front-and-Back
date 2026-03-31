@@ -172,6 +172,24 @@ const inferAppliedAtFromApplicant = (applicantRow) => {
     return null;
 };
 
+const extractInterviewScheduleFromApplicant = (applicantRow) => {
+    if (!applicantRow || !Array.isArray(applicantRow.applicantfacttable) || applicantRow.applicantfacttable.length === 0) {
+        return null;
+    }
+
+    const fact = applicantRow.applicantfacttable[0] || {};
+    const schedule = fact.schedule || null;
+    if (!schedule) return null;
+
+    return {
+        date: schedule.interview_schedule || null,
+        time: schedule.interview_time || null,
+        room: schedule.room_number || null,
+        location: schedule.location || null,
+        reminders: schedule.reminders || null
+    };
+};
+
 // ==========================================
 // --- API Routes / Controllers ---
 // ==========================================
@@ -374,10 +392,21 @@ exports.getApplicantStatus = async (req, res) => {
     const { applicantNo, password } = req.body || {};
     if (!applicantNo || !password) return res.status(400).json({ error: 'Required' });
     try {
-        const { data: applicant, error } = await supabase.from('applicant').select(`applicant_no, password, first_name, last_name, branch, position_applied, applicantfacttable (status (applied, interview, hired, rejected))`).eq('applicant_no', applicantNo).maybeSingle();
+        const { data: applicant, error } = await supabase.from('applicant').select(`applicant_no, password, first_name, last_name, branch, position_applied, applicantfacttable (status (applied, interview, hired, rejected), schedule:schedule_id(*))`).eq('applicant_no', applicantNo).maybeSingle();
         if (error) throw error;
         if (!applicant || applicant.password !== password) return res.status(401).json({ error: 'Invalid' });
-        res.json({ applicant: { id: applicant.applicant_no, name: `${applicant.first_name || ''} ${applicant.last_name || ''}`.trim(), status: extractApplicantStatus(applicant), branch: applicant.branch || 'Not assigned', position: applicant.position_applied || 'Not assigned', appliedAt: inferAppliedAtFromApplicant(applicant), checkedAt: new Date().toISOString() } });
+        res.json({
+            applicant: {
+                id: applicant.applicant_no,
+                name: `${applicant.first_name || ''} ${applicant.last_name || ''}`.trim(),
+                status: extractApplicantStatus(applicant),
+                branch: applicant.branch || 'Not assigned',
+                position: applicant.position_applied || 'Not assigned',
+                appliedAt: inferAppliedAtFromApplicant(applicant),
+                checkedAt: new Date().toISOString(),
+                interviewSchedule: extractInterviewScheduleFromApplicant(applicant)
+            }
+        });
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
