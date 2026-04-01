@@ -40,6 +40,10 @@
     },
     "extraResources": [
       {
+        "from": "../Back-end/.env",
+        "to": "backend/.env"
+      },
+      {
         "from": "../Back-end",
         "to": "backend",
         "filter": [
@@ -48,8 +52,25 @@
       }
     ],
     "win": {
-      "target": "nsis",
-      "icon": "src/assets/6RD.png"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "src/assets/6RD.png",
+      "artifactName": "${productName}-Installer-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": false
     },
     "mac": {
       "target": "dmg"

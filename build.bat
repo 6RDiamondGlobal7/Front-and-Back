@@ -3,6 +3,9 @@ setlocal
 
 set "ROOT_DIR=%~dp0"
 set "FRONTEND_DIR=%ROOT_DIR%Front-end-HR"
+set "BACKEND_ENV=%ROOT_DIR%Back-end\.env"
+set "UNPACKED_DIR=%FRONTEND_DIR%\release\win-unpacked"
+set "APP_EXE=6R Diamond HR Management System.exe"
 
 if not exist "%FRONTEND_DIR%\package.json" (
   echo [ERROR] Could not find Front-end-HR\package.json
@@ -40,6 +43,59 @@ if /I "%NPM_CONFIG_OFFLINE%"=="true" (
 set "NPM_CONFIG_OFFLINE="
 set "npm_config_offline="
 
+if not exist "%BACKEND_ENV%" (
+  echo [ERROR] Missing Back-end\.env required for production backend startup.
+  echo Create "%BACKEND_ENV%" with at least:
+  echo   SUPABASE_URL=your_supabase_url
+  echo   SUPABASE_ANON_KEY=your_supabase_anon_key
+  pause
+  popd
+  exit /b 1
+)
+
+findstr /R "^SUPABASE_URL=." "%BACKEND_ENV%" >nul
+if errorlevel 1 (
+  echo [ERROR] SUPABASE_URL is missing or empty in "%BACKEND_ENV%".
+  pause
+  popd
+  exit /b 1
+)
+
+findstr /R "^SUPABASE_ANON_KEY=." "%BACKEND_ENV%" >nul
+if errorlevel 1 (
+  echo [ERROR] SUPABASE_ANON_KEY is missing or empty in "%BACKEND_ENV%".
+  pause
+  popd
+  exit /b 1
+)
+
+if exist "%UNPACKED_DIR%\%APP_EXE%" (
+  echo [INFO] Preparing clean release folder...
+  taskkill /F /T /IM "%APP_EXE%" >nul 2>&1
+
+  set "CLEAN_OK=0"
+  for /L %%I in (1,1,5) do (
+    rmdir /S /Q "%UNPACKED_DIR%" >nul 2>&1
+    if not exist "%UNPACKED_DIR%" (
+      set "CLEAN_OK=1"
+      goto :clean_done
+    )
+
+    echo [WARNING] win-unpacked is locked. Retry %%I/5...
+    timeout /T 2 /NOBREAK >nul
+    taskkill /F /T /IM "%APP_EXE%" >nul 2>&1
+  )
+
+  :clean_done
+  if not "%CLEAN_OK%"=="1" (
+    echo [ERROR] Could not clean "%UNPACKED_DIR%".
+    echo Close "%APP_EXE%", close Explorer windows in release\, then retry.
+    popd
+    pause
+    exit /b 1
+  )
+)
+
 echo [INFO] Installing Front-end-HR dependencies ^(including devDependencies^)...
 call npm.cmd install --include=dev
 if errorlevel 1 (
@@ -62,6 +118,27 @@ if not "%BUILD_EXIT%"=="0" (
   echo [ERROR] Build failed with exit code %BUILD_EXIT%.
   pause
   exit /b %BUILD_EXIT%
+)
+
+if exist "%UNPACKED_DIR%" (
+  echo [INFO] Removing internal win-unpacked output to avoid confusion...
+  rmdir /S /Q "%UNPACKED_DIR%" >nul 2>&1
+  if exist "%UNPACKED_DIR%" (
+    echo [WARNING] Could not remove "%UNPACKED_DIR%". You can ignore that folder and use only the installer .exe.
+  )
+)
+
+for %%F in ("%FRONTEND_DIR%\release\* Setup *.exe") do (
+  if exist "%%~fF" (
+    echo [INFO] Removing legacy setup-named artifact: %%~nxF
+    del /F /Q "%%~fF" >nul 2>&1
+  )
+)
+
+for %%F in ("%FRONTEND_DIR%\release\* Setup *.exe.blockmap") do (
+  if exist "%%~fF" (
+    del /F /Q "%%~fF" >nul 2>&1
+  )
 )
 
 echo.

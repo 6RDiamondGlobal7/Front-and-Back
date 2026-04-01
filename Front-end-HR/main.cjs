@@ -12,6 +12,34 @@ let backendLogStream = null;
 const BACKEND_PORT = Number(process.env.BACKEND_PORT || 5000);
 const BACKEND_BOOT_TIMEOUT_MS = 20000;
 
+function isWithinPath(targetPath, parentPath) {
+  const normalizedTarget = path.resolve(targetPath).toLowerCase();
+  const normalizedParent = path.resolve(parentPath).toLowerCase();
+  return normalizedTarget === normalizedParent || normalizedTarget.startsWith(`${normalizedParent}${path.sep}`);
+}
+
+function isInstalledLocation(execPath) {
+  if (!app.isPackaged || process.platform !== 'win32') {
+    return true;
+  }
+
+  const normalizedExecPath = path.resolve(execPath).toLowerCase();
+  const usersLocalProgramsPattern = /^[a-z]:\\users\\[^\\]+\\appdata\\local\\programs(\\|$)/i;
+
+  if (usersLocalProgramsPattern.test(normalizedExecPath)) {
+    return true;
+  }
+
+  const programFilesRoots = [
+    process.env.ProgramFiles,
+    process.env['ProgramFiles(x86)'],
+    'C:\\Program Files',
+    'C:\\Program Files (x86)',
+  ].filter(Boolean);
+
+  return programFilesRoots.some((root) => isWithinPath(normalizedExecPath, root));
+}
+
 function getBackendDir() {
   if (app.isPackaged) {
     return path.join(process.resourcesPath, 'backend');
@@ -157,6 +185,15 @@ function stopBackend() {
 }
 
 function createWindow() {
+  if (!isInstalledLocation(process.execPath)) {
+    dialog.showErrorBox(
+      'Installation Required',
+      'This app must be installed using the official installer. Please run the installer and open the app from the Start Menu or desktop shortcut.'
+    );
+    app.quit();
+    return;
+  }
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
