@@ -3,6 +3,7 @@
   flex-direction: column;
   gap: 18px;
   width: 100%;
+  min-width: 0;
 }
 
 .title-text h2 {
@@ -64,15 +65,18 @@
 .filters-card {
   padding: 18px;
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: 16px;
+  min-width: 0;
 }
 
 .search-box-container {
   position: relative;
   flex: 1;
   max-width: 760px;
+  min-width: 260px;
 }
 
 .search-box-container input,
@@ -109,8 +113,10 @@
 
 .filter-actions-right {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   align-items: center;
+  min-width: 0;
 }
 
 .custom-dropdown-container {
@@ -199,13 +205,16 @@
 }
 
 .table-card {
-  overflow: visible;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .jobs-table-scroll {
   width: 100%;
+  max-width: 100%;
   overflow-x: auto;
-  overflow-y: visible;
+  overflow-y: hidden;
 }
 
 .jobs-table {
@@ -589,6 +598,12 @@
 
   .filter-actions-right {
     flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 1280px) {
+  .jobs-table {
+    min-width: 1040px;
   }
 }
 

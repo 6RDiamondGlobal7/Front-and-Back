@@ -2,6 +2,8 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
+  width: 100%;
+  min-width: 0;
 }
 
 .top-tabs-card,
@@ -55,6 +57,7 @@
   padding: 18px 20px;
   border-radius: 18px;
   align-items: center;
+  min-width: 0;
 }
 
 .search-wrapper,
@@ -63,6 +66,7 @@
   align-items: center;
   min-height: 56px;
   width: 100%;
+  min-width: 0;
 }
 
 .search-wrapper {
@@ -103,12 +107,15 @@
 
 
 .table-wrapper {
+  width: 100%;
+  min-width: 0;
   overflow: hidden;
   border-radius: 18px;
 }
 
 .table-scroll-shell {
   width: 100%;
+  max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
 }
@@ -574,6 +581,12 @@
 @media (max-width: 1120px) {
   .filters-card {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1280px) {
+  .applicants-table {
+    min-width: 1160px;
   }
 }
 

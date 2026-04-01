@@ -1,12 +1,15 @@
 .dashboard-wrapper {
   display: flex;
   height: 100vh;
+  min-width: 0;
+  overflow: hidden;
   background-color: #f0f7ff; 
 }
 
 /* Sidebar Styling */
 .sidebar {
   width: 260px;
+  flex-shrink: 0;
   background: white;
   display: flex;
   flex-direction: column;
@@ -72,7 +75,7 @@
 }
 
 /* Header & Content Styling - ENLARGED as requested */
-.main-section { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.main-section { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
 
 .dashboard-header {
   background: white;
@@ -115,7 +118,7 @@
   font-size: 1.1rem;
 }
 
-.content-body { padding: 30px; overflow-y: auto; flex: 1; }
+.content-body { padding: 30px; min-width: 0; overflow: auto; flex: 1; }
 
 /* Modal specific styles */
 .modal-overlay {

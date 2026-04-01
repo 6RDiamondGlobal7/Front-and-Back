@@ -44,8 +44,10 @@ function createWindow() {
   }
 
   const win = new BrowserWindow({
-    width: 1200,
+    width: 1280,
     height: 800,
+    minWidth: 1180,
+    minHeight: 700,
     // You can set your HR app logo here later:
     // icon: path.join(__dirname, 'src/assets/Logo.png'), 
     webPreferences: {
