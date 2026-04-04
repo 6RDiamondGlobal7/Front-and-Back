@@ -38,6 +38,7 @@ const SelectPosition = () => {
   const [jobDescriptionByTitle, setJobDescriptionByTitle] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedRole, setSelectedRole] = useState(null);
+  const [usingFallbackJobs, setUsingFallbackJobs] = useState(false);
 
   const displayBranch = branch ? branch.charAt(0).toUpperCase() + branch.slice(1) : 'Manila';
 
@@ -86,11 +87,14 @@ const SelectPosition = () => {
 
         setAvailableJobTitles(titles);
         setJobDescriptionByTitle(descriptions);
+        setUsingFallbackJobs(false);
         
       } catch (err) {
         console.error("Error fetching jobs:", err);
-        setAvailableJobTitles([]);
+        // Keep the form usable if the jobs API is temporarily unavailable.
+        setAvailableJobTitles(ROLES_DATA.map((role) => role.title));
         setJobDescriptionByTitle({});
+        setUsingFallbackJobs(true);
       } finally {
         setLoading(false);
       }
@@ -145,8 +149,15 @@ const SelectPosition = () => {
         {loading ? (
            <div style={{textAlign: 'center', padding: '40px'}}><IconLoading /></div>
         ) : (
-          <div className="sp-grid">
-            {ROLES_DATA.map((role) => {
+          <>
+            {usingFallbackJobs && (
+              <div style={{ marginBottom: '16px', padding: '12px 14px', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '10px', color: '#9a3412', fontSize: '13px' }}>
+                Live job status is temporarily unavailable. Showing default positions.
+              </div>
+            )}
+
+            <div className="sp-grid">
+              {ROLES_DATA.map((role) => {
               
               // Compare DB Titles with Role Titles
               const isAvailable = availableJobTitles.some(
@@ -176,7 +187,8 @@ const SelectPosition = () => {
                 </div>
               );
             })}
-          </div>
+            </div>
+          </>
         )}
         
         <button 
