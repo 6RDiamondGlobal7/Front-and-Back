@@ -1,0 +1,79 @@
+{
+  "name": "front-end-hr",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "main": "main.cjs",
+  "scripts": {
+    "postinstall": "node scripts/postinstall.cjs",
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "backend:install": "npm --prefix ../Back-end install --omit=dev",
+    "electron:dev": "node scripts/electron-dev.cjs",
+    "electron:build": "npm run backend:install && vite build && electron-builder"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.x.x",
+    "axios": "^1.14.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.7",
+    "lucide-react": "^1.7.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^6.0.1",
+    "concurrently": "^9.0.0",
+    "cross-env": "^7.0.3",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.0",
+    "vite": "^8.0.3",
+    "wait-on": "^8.0.0"
+  },
+  "build": {
+    "appId": "com.yourcompany.hrapp",
+    "productName": "6R Diamond HR Management System",
+    "directories": {
+      "output": "release"
+    },
+    "extraResources": [
+      {
+        "from": "../Back-end/.env",
+        "to": "backend/.env"
+      },
+      {
+        "from": "../Back-end",
+        "to": "backend",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "src/assets/6RD.png",
+      "artifactName": "${productName}-Installer-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "runAfterFinish": false
+    },
+    "mac": {
+      "target": "dmg"
+    }
+  }
+}
