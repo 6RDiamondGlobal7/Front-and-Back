@@ -18,6 +18,8 @@ const emailPass = String(process.env.EMAIL_PASS || process.env.VITE_EMAIL_PASS |
 const smtpHost = String(process.env.SMTP_HOST || 'smtp.gmail.com').trim();
 const smtpPort = Number.parseInt(process.env.SMTP_PORT || '587', 10);
 const smtpSecure = String(process.env.SMTP_SECURE || '').trim().toLowerCase() === 'true' || smtpPort === 465;
+const resendApiKey = String(process.env.RESEND_API_KEY || '').trim();
+const resendFromEmail = String(process.env.RESEND_FROM_EMAIL || '').trim();
 
 let emailTransportVerified = false;
 let transporter = null;
@@ -70,6 +72,54 @@ const ensureEmailTransport = async () => {
     }
 
     return activeTransporter;
+};
+
+const sendViaResend = async ({ to, subject, html }) => {
+    if (!resendApiKey || !resendFromEmail) {
+        throw new Error('Resend credentials missing. Set RESEND_API_KEY and RESEND_FROM_EMAIL.');
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
+
+    try {
+        const response = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${resendApiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                from: resendFromEmail,
+                to: [to],
+                subject,
+                html
+            }),
+            signal: controller.signal
+        });
+
+        if (!response.ok) {
+            const body = await response.text();
+            throw new Error(`Resend error ${response.status}: ${body}`);
+        }
+    } finally {
+        clearTimeout(timeout);
+    }
+};
+
+const sendEmailMessage = async ({ to, subject, html }) => {
+    if (resendApiKey && resendFromEmail) {
+        await sendViaResend({ to, subject, html });
+        return;
+    }
+
+    const activeTransporter = await ensureEmailTransport();
+    await activeTransporter.sendMail({
+        from: `"6R Diamond Recruitment" <${emailUser}>`,
+        to,
+        subject,
+        html
+    });
 };
 
 const passwordResetStore = new Map();
@@ -464,6 +514,10 @@ const toPublicResetError = (error) => {
         return 'Email sender credentials are missing. Set EMAIL_USER and EMAIL_PASS in Back-end/.env.';
     }
 
+    if (normalized.includes('connection timeout') || normalized.includes('timeout')) {
+        return 'Email connection timed out from server. Configure RESEND_API_KEY and RESEND_FROM_EMAIL to use HTTP email delivery.';
+    }
+
     return message;
 };
 
@@ -768,11 +822,8 @@ exports.submitApplication = async (req, res) => {
 
         if (normalizedEmail) { 
             try {
-                const activeTransporter = await ensureEmailTransport();
-
-                const mailOptions = {
-                    from: `"6R Diamond Recruitment" <${emailUser}>`, 
-                    to: normalizedEmail, 
+                await sendEmailMessage({
+                    to: normalizedEmail,
                     subject: 'Application Received - Login Credentials',
                     html: `
                         <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: auto;">
@@ -790,8 +841,7 @@ exports.submitApplication = async (req, res) => {
                             <p>Best regards,<br/><strong>Human Resources Department</strong><br/>6R Diamond International</p>
                         </div>
                     `
-                };
-                await activeTransporter.sendMail(mailOptions);
+                });
                 emailSent = true;
                 console.log(`Successfully sent credentials to applicant at: ${normalizedEmail}`);
             } catch (emailErr) {
@@ -1039,10 +1089,7 @@ exports.requestPasswordReset = async (req, res) => {
             email: accountEmail
         });
 
-        const activeTransporter = await ensureEmailTransport();
-
-        await activeTransporter.sendMail({
-            from: `"6R Diamond Recruitment" <${emailUser}>`,
+        await sendEmailMessage({
             to: accountEmail,
             subject: 'Password Reset Verification Code',
             html: `<p>Hello ${data.first_name || 'HR User'},</p><p>Your password reset code is <strong>${code}</strong>.</p><p>This code will expire in 15 minutes.</p>`
