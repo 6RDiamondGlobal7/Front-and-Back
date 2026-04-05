@@ -42,35 +42,17 @@ const SelectPosition = () => {
 
   const displayBranch = branch ? branch.charAt(0).toUpperCase() + branch.slice(1) : 'Manila';
 
-  // --- HELPER: ROBUST STATUS CHECKER ---
-  const isJobActive = (status) => {
-    if (status === true) return true;
-    if (status === 'true') return true;
-    if (status === 'Open') return true;
-    if (status === 'Active') return true;
-    return false;
-  };
-
   // --- FETCH JOBS ---
   useEffect(() => {
     const fetchJobs = async () => {
       try {
-        const response = await axios.get(`${API_BASE_URL}/api/jobs`);
-        const jobs = Array.isArray(response.data) ? response.data : [];
-        const branchKey = String(branch || '').toLowerCase();
-        
-        // Filter jobs based on Branch AND Status
-        const branchJobs = jobs.filter((job) => {
-            const locationText = String(job?.location || '').toLowerCase();
-            const branchText = String(job?.branch || '').toLowerCase();
-            const matchesBranch = locationText.includes(branchKey) || branchText.includes(branchKey);
-
-            // 1. Check Location Match
-            // 2. Check Status Match
-            const isOpen = isJobActive(job.job_status);
-
-            return matchesBranch && isOpen;
+        const response = await axios.get(`${API_BASE_URL}/api/jobs`, {
+          params: {
+            branch,
+            activeOnly: true
+          }
         });
+        const branchJobs = Array.isArray(response.data) ? response.data : [];
 
         const titles = branchJobs
           .map((job) => String(job?.job_title || '').trim())

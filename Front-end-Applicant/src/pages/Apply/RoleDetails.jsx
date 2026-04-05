@@ -63,7 +63,12 @@ const RoleDetails = () => {
           return;
         }
 
-        const response = await axios.get(`${API_BASE_URL}/api/jobs`);
+        const response = await axios.get(`${API_BASE_URL}/api/jobs`, {
+          params: {
+            branch,
+            activeOnly: true
+          }
+        });
         const jobs = Array.isArray(response.data) ? response.data : [];
         const branchKey = String(branch).toLowerCase();
         const match = jobs.find((job) => (

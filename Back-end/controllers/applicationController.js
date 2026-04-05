@@ -380,8 +380,29 @@ exports.testDb = async (req, res) => {
 };
 
 exports.getJobs = async (req, res) => {
-    try { res.json((await buildJobPostingsSnapshot()).jobs); } 
-    catch (err) { res.status(500).json({ error: err.message }); }
+    try {
+        const branchQuery = normalizeText(req.query?.branch);
+        const activeOnly = String(req.query?.activeOnly || '').trim().toLowerCase() === 'true';
+
+        const { data: jobs, error } = await supabase
+            .from('jobpostings')
+            .select('*')
+            .order('date_posted', { ascending: false });
+        if (error) throw error;
+
+        const filtered = (jobs || []).filter((job) => {
+            if (activeOnly && !isJobActive(job.job_status)) return false;
+            if (!branchQuery) return true;
+
+            const branchText = normalizeText(job?.branch);
+            const locationText = normalizeText(job?.location);
+            return branchText.includes(branchQuery) || locationText.includes(branchQuery);
+        });
+
+        res.json(filtered.map((job) => enrichJobPosting(job)));
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 };
 
 exports.getJobPostingsDashboard = async (req, res) => {
