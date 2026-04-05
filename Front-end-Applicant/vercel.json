@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://your-backend-domain.com/api/:path*"
+      "destination": "https://front-and-back-jhov.onrender.com/api/:path*"
     }
   ]
 }
