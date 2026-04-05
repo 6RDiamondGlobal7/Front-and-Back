@@ -19,35 +19,57 @@ const smtpHost = String(process.env.SMTP_HOST || 'smtp.gmail.com').trim();
 const smtpPort = Number.parseInt(process.env.SMTP_PORT || '587', 10);
 const smtpSecure = String(process.env.SMTP_SECURE || '').trim().toLowerCase() === 'true' || smtpPort === 465;
 
-const transporter = nodemailer.createTransport({
-    host: smtpHost,
-    port: smtpPort,
-    secure: smtpSecure,
-    requireTLS: !smtpSecure,
-    family: 4,
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 15000,
-    auth: {
-        user: emailUser,
-        pass: emailPass
-    },
-    tls: {
-        servername: smtpHost
-    }
+let emailTransportVerified = false;
+let transporter = null;
+
+const resolveIpv4Host = (hostname) => new Promise((resolve) => {
+    dns.lookup(hostname, { family: 4, all: false }, (error, address) => {
+        if (error || !address) {
+            resolve(hostname);
+            return;
+        }
+        resolve(address);
+    });
 });
 
-let emailTransportVerified = false;
+const getTransporter = async () => {
+    if (transporter) return transporter;
+
+    const smtpConnectionHost = await resolveIpv4Host(smtpHost);
+    transporter = nodemailer.createTransport({
+        host: smtpConnectionHost,
+        port: smtpPort,
+        secure: smtpSecure,
+        requireTLS: !smtpSecure,
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 15000,
+        localAddress: '0.0.0.0',
+        auth: {
+            user: emailUser,
+            pass: emailPass
+        },
+        tls: {
+            servername: smtpHost
+        }
+    });
+
+    return transporter;
+};
 
 const ensureEmailTransport = async () => {
     if (!emailUser || !emailPass) {
         throw new Error('Email sender credentials are missing. Set EMAIL_USER and EMAIL_PASS.');
     }
 
+    const activeTransporter = await getTransporter();
+
     if (!emailTransportVerified) {
-        await transporter.verify();
+        await activeTransporter.verify();
         emailTransportVerified = true;
     }
+
+    return activeTransporter;
 };
 
 const passwordResetStore = new Map();
@@ -746,7 +768,7 @@ exports.submitApplication = async (req, res) => {
 
         if (normalizedEmail) { 
             try {
-                await ensureEmailTransport();
+                const activeTransporter = await ensureEmailTransport();
 
                 const mailOptions = {
                     from: `"6R Diamond Recruitment" <${emailUser}>`, 
@@ -769,7 +791,7 @@ exports.submitApplication = async (req, res) => {
                         </div>
                     `
                 };
-                await transporter.sendMail(mailOptions);
+                await activeTransporter.sendMail(mailOptions);
                 emailSent = true;
                 console.log(`Successfully sent credentials to applicant at: ${normalizedEmail}`);
             } catch (emailErr) {
@@ -1017,9 +1039,9 @@ exports.requestPasswordReset = async (req, res) => {
             email: accountEmail
         });
 
-        await ensureEmailTransport();
+        const activeTransporter = await ensureEmailTransport();
 
-        await transporter.sendMail({
+        await activeTransporter.sendMail({
             from: `"6R Diamond Recruitment" <${emailUser}>`,
             to: accountEmail,
             subject: 'Password Reset Verification Code',
