@@ -1,18 +1,39 @@
 const supabase = require('../config/supabaseClient');
 const nodemailer = require('nodemailer'); // 1. Import Nodemailer
 const crypto = require('crypto'); // <-- Added crypto module
+const dns = require('dns');
+
+try {
+    // Render networking can fail on IPv6-only resolution for SMTP endpoints.
+    dns.setDefaultResultOrder('ipv4first');
+} catch (_) {
+    // Ignore on Node runtimes that do not support this API.
+}
 
 // ==========================================
 // --- Email Transporter Configuration ---
 // ==========================================
 const emailUser = String(process.env.EMAIL_USER || process.env.VITE_EMAIL_USER || '').trim();
 const emailPass = String(process.env.EMAIL_PASS || process.env.VITE_EMAIL_PASS || '').replace(/\s+/g, '');
+const smtpHost = String(process.env.SMTP_HOST || 'smtp.gmail.com').trim();
+const smtpPort = Number.parseInt(process.env.SMTP_PORT || '587', 10);
+const smtpSecure = String(process.env.SMTP_SECURE || '').trim().toLowerCase() === 'true' || smtpPort === 465;
 
 const transporter = nodemailer.createTransport({
-    service: 'gmail', 
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpSecure,
+    requireTLS: !smtpSecure,
+    family: 4,
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
     auth: {
         user: emailUser,
         pass: emailPass
+    },
+    tls: {
+        servername: smtpHost
     }
 });
 
@@ -677,9 +698,11 @@ exports.submitApplication = async (req, res) => {
         const tempPassword = generateSecurePassword(10); 
         const fullName = `${normalizedFirstName} ${normalizedLastName}`.trim();
 
-        const resumeUrl = await uploadFileToSupabase(files['resume']);
-        const coverLetterUrl = await uploadFileToSupabase(files['coverLetter']);
-        const prcIdUrl = await uploadFileToSupabase(files['prcId']);
+        const [resumeUrl, coverLetterUrl, prcIdUrl] = await Promise.all([
+            uploadFileToSupabase(files['resume']),
+            uploadFileToSupabase(files['coverLetter']),
+            uploadFileToSupabase(files['prcId'])
+        ]);
 
         const cleanAge = parseInt(age) || 0; 
         const cleanContact = contactNumber ? contactNumber.replace(/\D/g, '') : null;
@@ -699,12 +722,17 @@ exports.submitApplication = async (req, res) => {
         if (!applicantNo) throw new Error('Failed to generate applicant number.');
 
         // B. Save Status
-        const { data: newStatus, error: statusError } = await supabase.from('status').insert([{ 
+        const statusPromise = supabase.from('status').insert([{ 
             applied: 1, interview: 0, hired: 0, rejected: 0, applicant_no: applicantNo, applicant_name: fullName 
         }]).select().single();
+        const resolvedJobIdPromise = resolveJobPostingId({ jobId, positionApplied, branch });
+
+        const [{ data: newStatus, error: statusError }, resolvedJobId] = await Promise.all([
+            statusPromise,
+            resolvedJobIdPromise
+        ]);
 
         if (!statusError && newStatus) {
-            const resolvedJobId = await resolveJobPostingId({ jobId, positionApplied, branch });
             const factPayload = { applicant_no: applicantNo, status_id: newStatus.status_id };
             if (resolvedJobId) {
                 factPayload.job_id = resolvedJobId;
