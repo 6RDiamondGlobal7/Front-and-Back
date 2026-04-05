@@ -39,6 +39,7 @@ const ApplicationReview = () => {
   const [agreed, setAgreed] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showIncomplete, setShowIncomplete] = useState(false);
+  const [showNameMismatch, setShowNameMismatch] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showSample, setShowSample] = useState(false);
   const [signature, setSignature] = useState("");
@@ -68,7 +69,8 @@ const ApplicationReview = () => {
     }
 
     if (normalizedSignature !== expectedSignature) {
-      alert(`Confirmation name mismatch. Please type exactly: ${expectedSignature}`);
+      setShowConfirm(false);
+      setTimeout(() => setShowNameMismatch(true), 100);
       return;
     }
 
@@ -248,6 +250,37 @@ const ApplicationReview = () => {
                 {isSubmitting ? "Submitting..." : "Confirm"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showIncomplete && (
+        <div className="af-modal-overlay">
+          <div className="af-modal-yellow-box center fade-in" style={{ maxWidth: '420px', padding: '36px 28px' }}>
+            <button className="af-modal-yellow-close" onClick={() => setShowIncomplete(false)}><IconCloseDark /></button>
+            <div className="af-yellow-icon-circle"><IconWarningLarge /></div>
+            <h3 className="af-modal-yellow-title">Missing Confirmation Name</h3>
+            <p className="af-modal-yellow-desc">Please type your full name before confirming submission.</p>
+            <button className="af-yellow-btn-ok" onClick={() => { setShowIncomplete(false); setShowConfirm(true); }}>
+              Back to Confirmation
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showNameMismatch && (
+        <div className="af-modal-overlay">
+          <div className="af-modal-yellow-box center fade-in" style={{ maxWidth: '460px', padding: '36px 28px' }}>
+            <button className="af-modal-yellow-close" onClick={() => setShowNameMismatch(false)}><IconCloseDark /></button>
+            <div className="af-yellow-icon-circle"><IconWarningLarge /></div>
+            <h3 className="af-modal-yellow-title">Name Does Not Match</h3>
+            <p className="af-modal-yellow-desc" style={{ marginBottom: '10px' }}>
+              Please type your name exactly as entered in the form:
+            </p>
+            <p className="af-modal-yellow-desc" style={{ fontWeight: 700, color: '#1e293b' }}>{expectedSignature}</p>
+            <button className="af-yellow-btn-ok" onClick={() => { setShowNameMismatch(false); setShowConfirm(true); }}>
+              Try Again
+            </button>
           </div>
         </div>
       )}
