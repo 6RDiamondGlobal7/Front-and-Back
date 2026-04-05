@@ -43,6 +43,14 @@ const ApplicationReview = () => {
   const [showSample, setShowSample] = useState(false);
   const [signature, setSignature] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [emailDeliveryWarning, setEmailDeliveryWarning] = useState('');
+
+  const normalizeName = (value) => String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toUpperCase();
+
+  const expectedSignature = normalizeName(`${formData.firstName || ''} ${formData.lastName || ''}`);
 
   const handleBack = () => {
     localStorage.setItem('formStep', '4');
@@ -51,11 +59,18 @@ const ApplicationReview = () => {
 
   // --- SUBMIT FUNCTION WITH FILES ---
   const handleConfirmAction = async () => {
-    if (!signature.trim()) {
+    const normalizedSignature = normalizeName(signature);
+
+    if (!normalizedSignature) {
       setShowConfirm(false);
       setTimeout(() => setShowIncomplete(true), 100);
       return;
-    } 
+    }
+
+    if (normalizedSignature !== expectedSignature) {
+      alert(`Confirmation name mismatch. Please type exactly: ${expectedSignature}`);
+      return;
+    }
 
     setIsSubmitting(true);
 
@@ -104,6 +119,10 @@ const ApplicationReview = () => {
 
         if (response.status === 201) {
             console.log("Success! Applicant ID:", response.data.applicantId);
+          const warning = String(response.data?.emailWarning || '').trim();
+          const emailSent = response.data?.emailSent !== false;
+
+          setEmailDeliveryWarning(emailSent ? '' : (warning || 'Email delivery failed. Please contact HR support for credential resend.'));
             setShowConfirm(false);
             setTimeout(() => setShowSuccess(true), 100);
         }
@@ -239,7 +258,16 @@ const ApplicationReview = () => {
             <button className="af-modal-yellow-close" onClick={() => navigate('/apply')}><IconCloseDark /></button>
             <div className="af-yellow-icon-circle success"><IconCheckCircleBlue /></div>
             <h3 className="af-modal-yellow-title">Application Submitted!</h3>
-            <p className="af-modal-yellow-desc">Your application and documents have been sent. Your applicant number and password were also sent to your email.</p>
+            <p className="af-modal-yellow-desc">
+              {emailDeliveryWarning
+                ? 'Your application was submitted, but credential email delivery failed. Please contact HR support.'
+                : 'Your application and documents have been sent. Your applicant number and password were also sent to your email.'}
+            </p>
+            {emailDeliveryWarning && (
+              <p className="af-modal-yellow-desc" style={{ color: '#b45309', fontSize: '13px', marginTop: '8px' }}>
+                {emailDeliveryWarning}
+              </p>
+            )}
             <button className="af-yellow-btn-ok" onClick={() => navigate('/apply')}>Close</button>
           </div>
         </div>
