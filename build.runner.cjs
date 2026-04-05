@@ -52,20 +52,34 @@ function runNpm(args, opts = {}, addInstallFlags = false) {
   return res.status ?? 1;
 }
 
-function removeDirSafe(target) {
-  if (!exists(target)) return;
+function removeDirSafe(target, options = {}) {
+  const required = options.required !== false;
+  if (!exists(target)) return true;
   for (let i = 1; i <= 5; i += 1) {
     try {
       fs.rmSync(target, { recursive: true, force: true, maxRetries: 2, retryDelay: 200 });
     } catch {}
-    if (!exists(target)) return;
+    if (!exists(target)) return true;
     if (process.platform === 'win32') {
       run('taskkill', ['/F', '/T', '/IM', APP_EXE], { cwd: ROOT_DIR });
       run('powershell', ['-NoProfile', '-Command', 'Start-Sleep -Milliseconds 500'], { cwd: ROOT_DIR });
     }
     log('WARNING', `Could not remove ${target} yet. Retry ${i}/5...`);
   }
-  fail(`Could not remove locked folder: ${target}`);
+
+  // Last fallback for locked folders: try to rename and continue.
+  const stalePath = `${target}.stale-${Date.now()}`;
+  try {
+    fs.renameSync(target, stalePath);
+    log('WARNING', `Locked folder moved aside: ${stalePath}`);
+    return true;
+  } catch {}
+
+  if (required) {
+    fail(`Could not remove locked folder: ${target}`);
+  }
+  log('WARNING', `Proceeding even though folder is locked: ${target}`);
+  return false;
 }
 
 function installWithRecovery(targetDir, label, installArgs, extraEnv = {}) {
@@ -177,7 +191,7 @@ function removeLegacyArtifacts(hrDir) {
   if (exists(unpackedDir)) {
     log('INFO', 'Preparing clean release folder...');
     if (process.platform === 'win32') run('taskkill', ['/F', '/T', '/IM', APP_EXE]);
-    removeDirSafe(unpackedDir);
+    removeDirSafe(unpackedDir, { required: false });
   }
 
   installWithRecovery(applicantDir, 'Front-end-Applicant', ['install']);
@@ -211,7 +225,7 @@ function removeLegacyArtifacts(hrDir) {
 
   if (exists(unpackedDir)) {
     log('INFO', 'Removing internal win-unpacked output to avoid confusion...');
-    removeDirSafe(unpackedDir);
+    removeDirSafe(unpackedDir, { required: false });
   }
   removeLegacyArtifacts(hrDir);
 
