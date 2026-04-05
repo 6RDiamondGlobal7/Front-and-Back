@@ -5,13 +5,29 @@ const crypto = require('crypto'); // <-- Added crypto module
 // ==========================================
 // --- Email Transporter Configuration ---
 // ==========================================
+const emailUser = String(process.env.EMAIL_USER || process.env.VITE_EMAIL_USER || '').trim();
+const emailPass = String(process.env.EMAIL_PASS || process.env.VITE_EMAIL_PASS || '').replace(/\s+/g, '');
+
 const transporter = nodemailer.createTransport({
     service: 'gmail', 
     auth: {
-        user: String(process.env.EMAIL_USER || '').trim(),
-        pass: String(process.env.EMAIL_PASS || '').replace(/\s+/g, '')
+        user: emailUser,
+        pass: emailPass
     }
 });
+
+let emailTransportVerified = false;
+
+const ensureEmailTransport = async () => {
+    if (!emailUser || !emailPass) {
+        throw new Error('Email sender credentials are missing. Set EMAIL_USER and EMAIL_PASS.');
+    }
+
+    if (!emailTransportVerified) {
+        await transporter.verify();
+        emailTransportVerified = true;
+    }
+};
 
 const passwordResetStore = new Map();
 const PASSWORD_RESET_EXPIRY_MS = 15 * 60 * 1000;
@@ -649,9 +665,17 @@ exports.submitApplication = async (req, res) => {
     } = req.body;
 
     try {
+        const normalizedFirstName = String(firstName || '').trim();
+        const normalizedLastName = String(lastName || '').trim();
+        if (!normalizedFirstName || !normalizedLastName) {
+            return res.status(400).json({ error: 'First name and last name are required.' });
+        }
+
+        const normalizedEmail = normalizeEmail(email);
+
         // <-- Updated to use the secure password generator -->
         const tempPassword = generateSecurePassword(10); 
-        const fullName = `${firstName} ${lastName}`.trim();
+        const fullName = `${normalizedFirstName} ${normalizedLastName}`.trim();
 
         const resumeUrl = await uploadFileToSupabase(files['resume']);
         const coverLetterUrl = await uploadFileToSupabase(files['coverLetter']);
@@ -662,9 +686,9 @@ exports.submitApplication = async (req, res) => {
 
         // A. Save Applicant Data
         const { data: createdApplicant, error: appError } = await supabase.from('applicant').insert([{ 
-            password: tempPassword, first_name: firstName, last_name: lastName,
+            password: tempPassword, first_name: normalizedFirstName, last_name: normalizedLastName,
             middle_initial: middleInitial ? middleInitial.substring(0, 5) : null, suffix: suffix ? suffix.substring(0, 10) : null,
-            nationality, birthday, age: cleanAge, email, contact_number: cleanContact,
+            nationality, birthday, age: cleanAge, email: normalizedEmail, contact_number: cleanContact,
             region, province, city_municipality: city, barangay, detailed_address: detailedAddress,
             resume_url: resumeUrl, cover_letter_url: coverLetterUrl, prc_id_url: prcIdUrl,
             medical_condition: medicalCondition || 'no', medical_details: medicalDetails || null,
@@ -689,15 +713,20 @@ exports.submitApplication = async (req, res) => {
         }
 
         // C. Send the Automated Email
-        if (email) { 
+        let emailSent = false;
+        let emailWarning = null;
+
+        if (normalizedEmail) { 
             try {
+                await ensureEmailTransport();
+
                 const mailOptions = {
-                    from: `"6R Diamond Recruitment" <${process.env.EMAIL_USER}>`, 
-                    to: email, 
+                    from: `"6R Diamond Recruitment" <${emailUser}>`, 
+                    to: normalizedEmail, 
                     subject: 'Application Received - Login Credentials',
                     html: `
                         <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: auto;">
-                            <h2 style="color: #4A90E2;">Hello ${firstName},</h2>
+                            <h2 style="color: #4A90E2;">Hello ${normalizedFirstName},</h2>
                             <p>Thank you for submitting your application to <strong>6R Diamond International Cargo Logistics, Inc.</strong></p>
                             <p>We have successfully received your documents. You can track the status of your application through our portal using the credentials below:</p>
                             
@@ -713,15 +742,22 @@ exports.submitApplication = async (req, res) => {
                     `
                 };
                 await transporter.sendMail(mailOptions);
-                console.log(`Successfully sent credentials to applicant at: ${email}`);
+                emailSent = true;
+                console.log(`Successfully sent credentials to applicant at: ${normalizedEmail}`);
             } catch (emailErr) {
-                console.error("Warning: Failed to send email to applicant. Error: ", emailErr.message);
+                emailWarning = String(emailErr?.message || 'Unable to send credentials email.');
+                console.error('Warning: Failed to send email to applicant:', emailErr);
             }
         }
 
         invalidateCacheByScopes(['jobs', 'dashboard', 'reports', 'applicants', 'upcomingInterviews']);
 
-        res.status(201).json({ message: "Application submitted!", applicantId: applicantNo });
+        res.status(201).json({
+            message: 'Application submitted!',
+            applicantId: applicantNo,
+            emailSent,
+            emailWarning
+        });
     } catch (err) {
         console.error("Server Error:", err.message);
         res.status(500).json({ error: err.message });
@@ -953,8 +989,10 @@ exports.requestPasswordReset = async (req, res) => {
             email: accountEmail
         });
 
+        await ensureEmailTransport();
+
         await transporter.sendMail({
-            from: `"6R Diamond Recruitment" <${process.env.EMAIL_USER}>`,
+            from: `"6R Diamond Recruitment" <${emailUser}>`,
             to: accountEmail,
             subject: 'Password Reset Verification Code',
             html: `<p>Hello ${data.first_name || 'HR User'},</p><p>Your password reset code is <strong>${code}</strong>.</p><p>This code will expire in 15 minutes.</p>`
