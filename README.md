@@ -33,7 +33,12 @@ Option A (terminal, from `Front-end-HR`):
 npm run electron:build
 ```
 
-Option B (double-click):
+Option B (recommended, from workspace root):
+```bash
+node build.cjs
+```
+
+Legacy option:
 - Double-click `build.bat` at the workspace root.
 
 What this does automatically:
