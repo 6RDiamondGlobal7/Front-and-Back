@@ -16,6 +16,8 @@ const transporter = nodemailer.createTransport({
 const passwordResetStore = new Map();
 const PASSWORD_RESET_EXPIRY_MS = 15 * 60 * 1000;
 let employeeEmailColumnAvailable = null;
+const responseCache = new Map();
+const DEFAULT_CACHE_TTL_MS = Number.parseInt(process.env.API_CACHE_TTL_MS || '15000', 10);
 
 // ==========================================
 // --- Helper Functions ---
@@ -71,6 +73,34 @@ const toIntegerInRange = (value, min, max, fallback) => {
 };
 
 const normalizeText = (value) => String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+
+const makeCacheKey = (scope, payload = {}) => `${scope}:${JSON.stringify(payload)}`;
+
+const getCachedResponse = (key) => {
+    const cached = responseCache.get(key);
+    if (!cached) return null;
+    if (Date.now() >= cached.expiresAt) {
+        responseCache.delete(key);
+        return null;
+    }
+    return cached.value;
+};
+
+const setCachedResponse = (key, value, ttlMs = DEFAULT_CACHE_TTL_MS) => {
+    responseCache.set(key, {
+        value,
+        expiresAt: Date.now() + Math.max(1000, ttlMs)
+    });
+};
+
+const invalidateCacheByScopes = (scopes = []) => {
+    if (!Array.isArray(scopes) || scopes.length === 0) return;
+    for (const key of responseCache.keys()) {
+        if (scopes.some((scope) => key.startsWith(`${scope}:`))) {
+            responseCache.delete(key);
+        }
+    }
+};
 
 const normalizeList = (value) => {
     if (!Array.isArray(value)) return [];
@@ -159,6 +189,44 @@ const TITLE_TO_ROLE_IDS = Object.entries(ROLE_ID_TO_TITLE).reduce((acc, [roleId,
 
 const isJobActive = (status) => status === true || status === 'true' || status === 'Open' || status === 'Active';
 
+const makeApplicantCountKey = (title, branch) => `${title}::${branch || '*'}`;
+
+const buildApplicantCountIndex = (applicants = []) => {
+    const counts = new Map();
+
+    const add = (title, branch) => {
+        if (!title) return;
+        const key = makeApplicantCountKey(title, branch);
+        counts.set(key, (counts.get(key) || 0) + 1);
+    };
+
+    for (const applicant of applicants) {
+        const normalizedPosition = normalizeText(applicant?.position_applied);
+        const normalizedRoleTitle = normalizeText(ROLE_ID_TO_TITLE[applicant?.position_applied]);
+        const normalizedBranch = normalizeText(applicant?.branch);
+        const titles = new Set([normalizedPosition, normalizedRoleTitle].filter(Boolean));
+
+        for (const title of titles) {
+            add(title, '*');
+            if (normalizedBranch) add(title, normalizedBranch);
+        }
+    }
+
+    return counts;
+};
+
+const countApplicantsForJob = (job, applicantCountIndex) => {
+    const jobTitle = normalizeText(job?.job_title);
+    if (!jobTitle) return 0;
+
+    const jobBranch = normalizeText(job?.branch);
+    if (jobBranch) {
+        return applicantCountIndex.get(makeApplicantCountKey(jobTitle, jobBranch)) || 0;
+    }
+
+    return applicantCountIndex.get(makeApplicantCountKey(jobTitle, '*')) || 0;
+};
+
 const parseViewTimestamp = (eventId) => {
     const match = String(eventId || '').match(/^VIEW-(\d+)/);
     if (!match) return Number.NaN;
@@ -242,10 +310,10 @@ const buildJobPostingsSnapshot = async () => {
         .select('event_id, created_at');
     if (viewEventsError) throw viewEventsError;
 
-    const jobsWithCounts = (jobs || []).map((job) => {
-        const applicantCount = (applicants || []).filter((applicant) => applicantMatchesJob(applicant, job)).length;
-        return enrichJobPosting({ ...job, total_applicants: applicantCount });
-    });
+    const applicantCountIndex = buildApplicantCountIndex(applicants || []);
+    const jobsWithCounts = (jobs || []).map((job) => (
+        enrichJobPosting({ ...job, total_applicants: countApplicantsForJob(job, applicantCountIndex) })
+    ));
 
     const activeJobPosts = jobsWithCounts.filter((job) => isJobActive(job.job_status)).length;
     const totalApplications = (applicants || []).length;
@@ -383,6 +451,11 @@ exports.getJobs = async (req, res) => {
     try {
         const branchQuery = normalizeText(req.query?.branch);
         const activeOnly = String(req.query?.activeOnly || '').trim().toLowerCase() === 'true';
+        const cacheKey = makeCacheKey('jobs', { branchQuery, activeOnly });
+        const cached = getCachedResponse(cacheKey);
+        if (cached) {
+            return res.json(cached);
+        }
 
         const { data: jobs, error } = await supabase
             .from('jobpostings')
@@ -399,19 +472,33 @@ exports.getJobs = async (req, res) => {
             return branchText.includes(branchQuery) || locationText.includes(branchQuery);
         });
 
-        res.json(filtered.map((job) => enrichJobPosting(job)));
+        const payload = filtered.map((job) => enrichJobPosting(job));
+        setCachedResponse(cacheKey, payload);
+        res.json(payload);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
 };
 
 exports.getJobPostingsDashboard = async (req, res) => {
-    try { res.json(await buildJobPostingsSnapshot()); } 
+    try {
+        const cacheKey = makeCacheKey('dashboard', {});
+        const cached = getCachedResponse(cacheKey);
+        if (cached) return res.json(cached);
+
+        const payload = await buildJobPostingsSnapshot();
+        setCachedResponse(cacheKey, payload);
+        res.json(payload);
+    } 
     catch (err) { res.status(500).json({ error: err.message }); }
 };
 
 exports.getUpcomingInterviews = async (req, res) => {
     try {
+        const cacheKey = makeCacheKey('upcomingInterviews', {});
+        const cached = getCachedResponse(cacheKey);
+        if (cached) return res.json(cached);
+
         const { data, error } = await supabase
             .from('applicantfacttable')
             .select('schedule:schedule_id(interview_schedule), status!inner(interview)')
@@ -431,7 +518,9 @@ exports.getUpcomingInterviews = async (req, res) => {
         const schedule = dates.map((date) => ({ date, count: grouped[date] }));
         const totalScheduled = schedule.reduce((sum, item) => sum + item.count, 0);
 
-        res.json({ totalScheduled, schedule });
+        const payload = { totalScheduled, schedule };
+        setCachedResponse(cacheKey, payload);
+        res.json(payload);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -453,6 +542,7 @@ exports.recordJobView = async (req, res) => {
             }
         ]);
         if (error) throw error;
+        invalidateCacheByScopes(['dashboard']);
         res.status(201).json({ message: 'View recorded' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
@@ -474,6 +564,7 @@ exports.recordSiteView = async (req, res) => {
         ]);
 
         if (error) throw error;
+        invalidateCacheByScopes(['dashboard']);
         res.status(201).json({ message: 'Site view recorded' });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -500,6 +591,7 @@ exports.createJobPosting = async (req, res) => {
             total_applicants: 0
         }]).select().single();
         if (error) throw error;
+        invalidateCacheByScopes(['jobs', 'dashboard', 'reports']);
         res.status(201).json({ message: 'Created successfully', job: data });
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
@@ -522,6 +614,7 @@ exports.updateJobPosting = async (req, res) => {
 
         const { data, error } = await supabase.from('jobpostings').update(payload).eq('job_id', req.params.id).select().single();
         if (error) throw error;
+        invalidateCacheByScopes(['jobs', 'dashboard', 'reports']);
         res.json({ message: 'Updated successfully', job: data });
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
@@ -530,6 +623,7 @@ exports.updateJobStatus = async (req, res) => {
     try {
         const { data, error } = await supabase.from('jobpostings').update({ job_status: Boolean(req.body.job_status) }).eq('job_id', req.params.id).select().single();
         if (error) throw error;
+        invalidateCacheByScopes(['jobs', 'dashboard', 'reports']);
         res.json({ message: 'Status updated', job: data });
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
@@ -538,6 +632,7 @@ exports.deleteJobPosting = async (req, res) => {
     try {
         const { error } = await supabase.from('jobpostings').delete().eq('job_id', req.params.id);
         if (error) throw error;
+        invalidateCacheByScopes(['jobs', 'dashboard', 'reports']);
         res.json({ message: 'Deleted successfully' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
@@ -624,6 +719,8 @@ exports.submitApplication = async (req, res) => {
             }
         }
 
+        invalidateCacheByScopes(['jobs', 'dashboard', 'reports', 'applicants', 'upcomingInterviews']);
+
         res.status(201).json({ message: "Application submitted!", applicantId: applicantNo });
     } catch (err) {
         console.error("Server Error:", err.message);
@@ -633,9 +730,13 @@ exports.submitApplication = async (req, res) => {
 
 exports.getApplicants = async (req, res) => {
     try {
+        const cacheKey = makeCacheKey('applicants', {});
+        const cached = getCachedResponse(cacheKey);
+        if (cached) return res.json(cached);
+
         const { data, error } = await supabase.from('applicant').select(`*, applicantfacttable (applied_date, status (applied, interview, hired, rejected))`).order('applicant_no', { ascending: false });
         if (error) throw error;
-        res.json(data.map(app => ({
+        const payload = data.map(app => ({
             appliedAt: app.created_at || app.createdAt || inferAppliedAtFromApplicant(app),
             created_at: app.created_at || null,
             application_date: app.created_at || app.createdAt || inferAppliedAtFromApplicant(app),
@@ -646,7 +747,10 @@ exports.getApplicants = async (req, res) => {
             detailedAddress: app.detailed_address, resume_url: app.resume_url, cover_letter_url: app.cover_letter_url,
             medicalCondition: app.medical_condition, medicalDetails: app.medical_details,
             status: extractApplicantStatus(app), branch: app.branch || 'Not assigned', position: app.position_applied || 'Not assigned'
-        })));
+        }));
+
+        setCachedResponse(cacheKey, payload);
+        res.json(payload);
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
@@ -655,6 +759,15 @@ exports.getReports = async (req, res) => {
         const period = getPeriodConfig(req.query || {});
         const selectedBranch = normalizeBranch(req.query?.branch);
         const hasBranchFilter = selectedBranch && selectedBranch !== 'all';
+        const cacheKey = makeCacheKey('reports', {
+            reportType: period.reportType,
+            startDate: period.startDate,
+            endDate: period.endDate,
+            selectedBranch: hasBranchFilter ? selectedBranch : 'all'
+        });
+        const cached = getCachedResponse(cacheKey);
+        if (cached) return res.json(cached);
+
         const { data, error } = await supabase.from('applicant').select(`*, applicantfacttable (applied_date, status (applied, interview, hired, rejected))`);
         if (error) throw error;
 
@@ -676,11 +789,14 @@ exports.getReports = async (req, res) => {
         const total = records.length;
         const statusBreakdown = records.reduce((acc, item) => { acc[item.status] = (acc[item.status] || 0) + 1; return acc; }, { Applied: 0, Interview: 0, Hired: 0, Rejected: 0 });
 
-        res.json({
+        const payload = {
             meta: { reportType: period.reportType, label: period.label, dateRange: { from: period.startDate, to: period.endDate }, filter: { ...period.filter, branch: hasBranchFilter ? selectedBranch : 'all' } },
             summary: { totalApplications: total, newApplications: statusBreakdown.Applied, interviewCount: statusBreakdown.Interview, hiredCount: statusBreakdown.Hired, rejectedCount: statusBreakdown.Rejected, interviewRate: percentage(statusBreakdown.Interview, total), hiringRate: percentage(statusBreakdown.Hired, total), rejectionRate: percentage(statusBreakdown.Rejected, total) },
             statusBreakdown, records
-        });
+        };
+
+        setCachedResponse(cacheKey, payload);
+        res.json(payload);
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
@@ -750,6 +866,7 @@ exports.updateApplicantStatus = async (req, res) => {
             const { data: statusInsert } = await supabase.from('status').insert([newStatusObj]).select().single();
             await supabase.from('applicantfacttable').insert([{ applicant_no: id, status_id: statusInsert.status_id }]);
         }
+        invalidateCacheByScopes(['jobs', 'dashboard', 'reports', 'applicants', 'upcomingInterviews']);
         res.json({ message: `Status updated to ${status}` });
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
