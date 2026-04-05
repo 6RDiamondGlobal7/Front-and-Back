@@ -216,13 +216,17 @@ function createWindow() {
 }
 
 app.whenReady().then(async () => {
-  try {
-    await startBackend();
-  } catch (err) {
-    const logPath = path.join(app.getPath('userData'), 'logs', 'backend.log');
-    dialog.showErrorBox('Backend Startup Failed', `${err.message}\n\nCheck log:\n${logPath}`);
-    app.quit();
-    return;
+  const shouldRunBundledBackend = !app.isPackaged;
+
+  if (shouldRunBundledBackend) {
+    try {
+      await startBackend();
+    } catch (err) {
+      const logPath = path.join(app.getPath('userData'), 'logs', 'backend.log');
+      dialog.showErrorBox('Backend Startup Failed', `${err.message}\n\nCheck log:\n${logPath}`);
+      app.quit();
+      return;
+    }
   }
 
   createWindow();

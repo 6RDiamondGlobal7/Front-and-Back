@@ -1,3 +1,5 @@
+const PRODUCTION_API_BASE_URL = 'https://front-and-back-jhov.onrender.com';
+
 export const getApiBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_BASE_URL;
   if (envUrl) {
@@ -8,13 +10,7 @@ export const getApiBaseUrl = () => {
     const { protocol, hostname } = window.location;
 
     if (protocol === 'file:') {
-      const backendPortArg =
-        typeof process !== 'undefined' && Array.isArray(process.argv)
-          ? process.argv.find((arg) => arg.startsWith('--backend-port='))
-          : null;
-
-      const port = backendPortArg ? backendPortArg.split('=')[1] : '5000';
-      return `http://127.0.0.1:${port}`;
+      return PRODUCTION_API_BASE_URL;
     }
 
     const tunnelPattern = /^([a-z0-9-]+)-\d+(\..*devtunnels\.ms)$/i;
@@ -26,5 +22,5 @@ export const getApiBaseUrl = () => {
     return `${protocol}//${hostname}:5000`;
   }
 
-  return 'http://localhost:5000';
+  return PRODUCTION_API_BASE_URL;
 };
