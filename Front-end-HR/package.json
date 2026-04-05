@@ -40,14 +40,22 @@
                                   },
                   "extraResources":  [
                                          {
-                                             "from":  "../Back-end/.env",
-                                             "to":  "backend/.env"
-                                         },
-                                         {
                                              "from":  "../Back-end",
                                              "to":  "backend",
                                              "filter":  [
-                                                            "**/*"
+                                                            "**/*",
+                                                            "!node_modules/.cache/**",
+                                                            "!node_modules/**/test/**",
+                                                            "!node_modules/**/tests/**",
+                                                            "!node_modules/**/__tests__/**",
+                                                            "!node_modules/**/docs/**",
+                                                            "!node_modules/**/doc/**",
+                                                            "!node_modules/**/example/**",
+                                                            "!node_modules/**/examples/**",
+                                                            "!**/*.md",
+                                                            "!**/.git/**",
+                                                            "!**/.github/**",
+                                                            "!backend.log"
                                                         ]
                                          }
                                      ],
@@ -74,6 +82,7 @@
                            },
                   "mac":  {
                               "target":  "dmg"
-                          }
+                          },
+                  "compression":  "store"
               }
 }
