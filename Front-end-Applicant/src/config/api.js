@@ -1,5 +1,3 @@
-const WEBSITE_BASE_URL = 'https://6r-diamond-portal.vercel.app';
-
 export const getApiBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_BASE_URL;
   if (envUrl) return envUrl.replace(/\/$/, '');
@@ -19,12 +17,8 @@ export const getApiBaseUrl = () => {
       return `${protocol}//${hostname}:5000`;
     }
 
-    if (origin) {
-      return origin;
-    }
-
-    return WEBSITE_BASE_URL;
+    return origin;
   }
 
-  return WEBSITE_BASE_URL;
+  return 'http://localhost:5000';
 };
