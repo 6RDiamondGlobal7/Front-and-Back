@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { supabase } from '../supabaseClient';
 import { getApiBaseUrl } from '../config/api';
 import { 
   Search, Clock, MapPin, Mail, Phone, Check, X, Download, Calendar, 
-  Briefcase, CheckCircle, Eye, Users
+  Briefcase, CheckCircle, Eye
 } from 'lucide-react';
 import './Schedules.css';
 import ConfirmationModal from '../components/ConfirmationModal';
@@ -97,22 +96,12 @@ const Schedules = () => {
 
   // --- FETCH DATA ---
   const fetchData = async () => {
-    setLoading(true);
-    // Fetch pending
-    const { data: pendingData } = await supabase
-      .from('applicantfacttable')
-      .select(`*, applicant:applicant_no(*), status!inner(interview)`) 
-      .eq('status.interview', 1)
-      .is('schedule_id', null); 
+    try {
+      setLoading(true);
+      const { data } = await axios.get(`${API_BASE_URL}/api/interviews/queue`);
+      const pendingData = Array.isArray(data?.pendingApplicants) ? data.pendingApplicants : [];
+      const interviewData = Array.isArray(data?.scheduledApplicants) ? data.scheduledApplicants : [];
 
-    // Fetch scheduled
-    const { data: interviewData } = await supabase
-      .from('applicantfacttable')
-      .select(`*, applicant:applicant_no(*), schedule:schedule_id(*), status!inner(interview)`) 
-      .eq('status.interview', 1)
-      .not('schedule_id', 'is', null);
-
-    if (pendingData) {
       setPendingApplicants(
         pendingData.map((item) => ({
           ...item,
@@ -121,8 +110,6 @@ const Schedules = () => {
             : item.applicant
         }))
       );
-    }
-    if (interviewData) {
       setScheduledApplicants(
         interviewData.map((item) => ({
           ...item,
@@ -131,8 +118,11 @@ const Schedules = () => {
             : item.applicant
         }))
       );
+    } catch (error) {
+      setToast({ open: true, tone: 'error', message: 'Failed to load interview queue.' });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => { fetchData(); }, []);
@@ -193,72 +183,47 @@ const Schedules = () => {
       return;
     }
 
-    setLoading(true);
-    let hasError = false;
-    const scheduledCount = stagedApplicants.length;
-    const locationValue = String(scheduleForm.location || '').trim();
+    try {
+      setLoading(true);
 
-    for (const app of stagedApplicants) {
-      const schedulePayload = {
-        interview_schedule: app.assignedDate,
-        interview_time: app.timeSlot,
-        room_number: roomValue,
-        reminders: scheduleForm.reminders
+      const payload = {
+        location: String(scheduleForm.location || '').trim(),
+        room: roomValue,
+        reminders: String(scheduleForm.reminders || '').trim(),
+        schedules: stagedApplicants.map((app) => ({
+          applicant_no: app.applicant_no,
+          assignedDate: app.assignedDate,
+          timeSlot: app.timeSlot
+        }))
       };
-      if (locationValue) {
-        schedulePayload.location = locationValue;
+
+      const { data } = await axios.post(`${API_BASE_URL}/api/interviews/schedule`, payload);
+      const successCount = Number(data?.successCount || 0);
+      const failedApplicants = Array.isArray(data?.failedApplicants) ? data.failedApplicants : [];
+
+      if (successCount > 0) {
+        setCompletedScheduleCount(successCount);
+        setShowSuccessModal(true);
       }
 
-      let { data: schedData, error: schedError } = await supabase
-        .from('schedule')
-        .insert([schedulePayload])
-        .select();
-
-      // Backward compatibility if schedule table does not have `location` column yet.
-      if (schedError && /column .*location/i.test(String(schedError.message || ''))) {
-        ({ data: schedData, error: schedError } = await supabase
-          .from('schedule')
-          .insert([{
-            interview_schedule: app.assignedDate,
-            interview_time: app.timeSlot,
-            room_number: roomValue,
-            reminders: scheduleForm.reminders
-          }])
-          .select());
+      if (failedApplicants.length > 0) {
+        const failedSet = new Set(failedApplicants.map((item) => String(item?.applicant_no || '')));
+        setStagedApplicants((prev) => prev.filter((app) => failedSet.has(String(app.applicant_no))));
+        setToast({
+          open: true,
+          tone: 'info',
+          message: `${failedApplicants.length} applicant(s) failed to schedule. Please retry.`
+        });
+      } else {
+        setStagedApplicants([]);
       }
 
-      if (schedError) {
-        console.error("Insert Schedule Error:", schedError);
-        setToast({ open: true, tone: 'error', message: `Supabase Insert Error: ${schedError.message}` });
-        hasError = true;
-        continue; // Skip kung may error sa insert
-      }
-
-      // Kapag successful ang pagpasok sa schedule table, i-update ang fact table
-      if (schedData && schedData.length > 0) {
-        // Fallback sa 'id' kung hindi 'schedule_id' ang name ng primary key sa database mo
-        const newScheduleId = schedData[0].schedule_id || schedData[0].id; 
-
-        const { error: updateError } = await supabase
-          .from('applicantfacttable')
-          .update({ schedule_id: newScheduleId })
-          .eq('applicant_no', app.applicant_no);
-
-        if (updateError) {
-          console.error("Update Fact Table Error:", updateError);
-          setToast({ open: true, tone: 'error', message: `Supabase Update Error: ${updateError.message}` });
-          hasError = true;
-        }
-      }
-    }
-    
-    setLoading(false);
-
-    if (!hasError) {
-      setCompletedScheduleCount(scheduledCount);
-      setStagedApplicants([]);
-      fetchData(); 
-      setShowSuccessModal(true);
+      fetchData();
+    } catch (err) {
+      const message = err?.response?.data?.error || 'Failed to save schedule. Please try again.';
+      setToast({ open: true, tone: 'error', message });
+    } finally {
+      setLoading(false);
     }
   };
 
