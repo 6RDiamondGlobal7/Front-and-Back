@@ -1,80 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import logoImg from '../../assets/logo.png';
 import heroImage from '../../assets/cargo.jpg';
-import aboutOfficeImg from '../../assets/about-office.jpg';
-import aboutHistoryImg from '../../assets/about-history-ship.jpg';
-import servicesOtherImg from '../../assets/services-other.jpeg';
-import servicesTruckIcon from '../../assets/services-truck-icon.png';
+import PortImg from '../../assets/Portscrates.png';
 import './Central.css';
 
-const Central = ({ initialSection = 'home' }) => {
+const Central = ({ initialSection = 'home', aboutOnly = false }) => {
   const location = useLocation();
-  const navigate = useNavigate();
   const isAboutPage = location.pathname === '/about';
-  const [activeSection, setActiveSection] = useState(initialSection);
-  // Add a ref to track if we are currently performing a manual click-scroll
-  const isManualScrolling = useRef(false);
-  const scrollTimeout = useRef(null);
-
   useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-  }, [location.pathname]);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      // If we clicked a link, don't let the scroll listener change the active section
-      if (isManualScrolling.current) return;
-
-      const sections = ['home', 'about', 'services', 'contact'];
-      const scrollPosition = window.scrollY + 200;
-
-      const isBottom = (window.innerHeight + window.scrollY) >= document.documentElement.scrollHeight - 60;
-
-      if (isBottom) {
-        setActiveSection('contact');
-      } else {
-        sections.forEach((sectionId) => {
-          const element = document.getElementById(sectionId);
-          if (element) {
-            const { offsetTop, offsetHeight } = element;
-            if (scrollPosition >= offsetTop && scrollPosition < offsetTop + offsetHeight) {
-              setActiveSection(sectionId);
-            }
-          }
-        });
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isAboutPage) return;
-    setActiveSection('about');
-  }, [isAboutPage]);
-
-  // Helper function to handle nav clicks
-  const handleNavClick = (sectionId) => {
-    isManualScrolling.current = true;
-    setActiveSection(sectionId);
-
-    // Re-enable scroll listener after the smooth scroll animation finishes (approx 800ms)
-    if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
-    scrollTimeout.current = setTimeout(() => {
-      isManualScrolling.current = false;
-    }, 800); 
-  };
-
-  const scrollToSection = (sectionId) => {
-    setActiveSection(sectionId);
-    const el = document.getElementById(sectionId);
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
+    if (!isAboutPage || !initialSection) return;
+    const section = document.getElementById(initialSection);
+    if (section) section.scrollIntoView({ behavior: 'auto', block: 'start' });
+  }, [isAboutPage, initialSection]);
 
   return (
     <div className="central-page">
@@ -89,28 +27,10 @@ const Central = ({ initialSection = 'home' }) => {
           </div>
           
           <nav className="central-nav">
-            <Link to="/" className={!isAboutPage && activeSection === 'home' ? 'active-nav-link' : ''}>HOME</Link>
-            <button
-              type="button"
-              onClick={() => navigate('/about')}
-              className={isAboutPage || activeSection === 'about' ? 'active-nav-link nav-link-button' : 'nav-link-button'}
-            >
-              ABOUT
-            </button>
-            <button
-              type="button"
-              onClick={() => scrollToSection('services')}
-              className={activeSection === 'services' ? 'active-nav-link nav-link-button' : 'nav-link-button'}
-            >
-              SERVICES
-            </button>
-            <button
-              type="button"
-              onClick={() => scrollToSection('contact')}
-              className={activeSection === 'contact' ? 'active-nav-link nav-link-button' : 'nav-link-button'}
-            >
-              CONTACT
-            </button>
+            <Link to="/" className={!isAboutPage ? 'active-nav-link' : ''}>HOME</Link>
+            <Link to="/about" className={isAboutPage ? 'active-nav-link' : ''}>ABOUT</Link>
+            <Link to="/services">SERVICES</Link>
+            <Link to="/contact">CONTACT</Link>
             <Link to="/apply" className="central-apply-btn">
               APPLY HERE
             </Link>
@@ -118,7 +38,7 @@ const Central = ({ initialSection = 'home' }) => {
         </div>
       </header>
 
-      {!isAboutPage && (
+      {!aboutOnly && (
         <section 
           id="home" 
           className="hero-section" 
@@ -138,128 +58,123 @@ const Central = ({ initialSection = 'home' }) => {
         </section>
       )}
 
-      {/* About Section */}
-      <section id="about" className="about-section">
-        <div className="section-container about-reference-wrap">
-          <div className="about-top-heading">
-            <h2>ABOUT US</h2>
-            <p>6R Diamond International Cargo Logistics Inc.</p>
+      {/* WHO WE ARE Section */}
+      <section id="about" className="about-section top-accent-line">
+        <div className="section-container about-grid-container">
+          <div className="about-image-wrapper">
+            <img src={PortImg} alt="Cargo Terminal" className="about-main-image" />
           </div>
-
-          <div className="about-feature-row">
-            <div className="about-copy-block">
+          <div className="about-text-content">
+            <h2 className="about-title-small">WHO WE ARE</h2>
+            <div className="about-description-simple">
               <p>
-                As the demand for freight servicing increases, this one stop shop continues to move forward in developing up-to-date strategies and
-                mechanisms to accomodate the needs of our clients while upholding our commitment of providing cost-efficient and quality service. Above all, the
-                company&apos;s integrity is of utmost importance.
+                We are a freight forwarding company with more than four decades in the industry. 
+                We pride ourselves in providing quality service on freight forwarding, 
+                transportation, and brokerage services. Moreover, we also offer a wide range of 
+                transportation and logistic solutions for importing and exporting clients 
+                domestically and internationally.
               </p>
             </div>
-            <div className="about-photo-block">
-              <img src={aboutOfficeImg} alt="6R Diamond office reception" />
-            </div>
+            <Link to="/about" className="about-learn-more">
+              Learn More
+            </Link>
           </div>
+        </div>
 
-          <div className="about-feature-row reverse">
-            <div className="about-photo-block">
-              <img src={aboutHistoryImg} alt="Aerial cargo ship at port" />
-            </div>
-            <div className="about-copy-block">
-              <h3>OUR HISTORY</h3>
-              <p>
-                With more than four decades of experience in providing customs clearance and brokerage services, the founding president and CEO emerita of
-                the company, Cresenciana Cruz, formally established 6R Diamond International Cargo Logistics, Inc. on January 7, 2007.
-                Through this expansion, the company evolved from a simple customs brokerage to a freight forwarding company that offers a wide range of
-                transportation and logistic services for importing and exporting customers both domestically and internationally.
-              </p>
-            </div>
+        <div className="global-map-overlay">
+          <div className="map-content">
+            <h3 className="map-subtitle">FROM PORTS TO INLAND TERMINALS</h3>
+            <h2 className="map-title">TO DIFFERENT PARTS OF THE WORLD</h2>
+            <p className="map-locations">
+              CHINA • HONG KONG • MALAYSIA • TAIWAN • THAILAND • SINGAPORE<br />
+              KOREA • JAPAN • USA • SPAIN • PORTUGAL • AUSTRALIA • AFRICA
+            </p>
+            <div className="world-map-graphic"></div> 
           </div>
+        </div>
 
-          <div className="about-pillars-grid">
-            <article className="pillar-card">
-              <div className="pillar-icon" aria-hidden="true">|||</div>
-              <h4>OUR MISSION</h4>
-              <p>
-                Our company&apos;s top priority is to cater to the evolving needs of our customers by delivering quality and cost-efficient logistics and transportation
-                solutions. We commit to ensure the total satisfaction of our clients by continuously improving our productivity through technological
-                advancements and strategic innovations.
-              </p>
-            </article>
+        {/* Business Solutions Section */}
+        <div id="services" className="business-solutions-yellow">
+          <div className="section-container">
+            <div className="solutions-intro-grid">
+              <div className="solutions-image-box">
+                <img src={'https://projectcargo.com.tr/images/bg-img/col-bgimage-1.jpg'} alt="Cargo Terminal" className="solutions-main-img" />
+              </div>
+              <div className="solutions-text-box">
+                <h2 className="solutions-title">BUSINESS SOLUTIONS</h2>
+                <p className="solutions-text">
+                  Our extensive range of expertise and services are well-integrated to provide 
+                  our clients their needs and quality service they deserve. Our versatility allows 
+                  our client to negotiate and customize our services in accordance to their desired 
+                  outcome, while considering the optimal costs for both parties.
+                </p>
+                <button className="blue-discover-btn">Discover More</button>
+              </div>
+            </div>
 
-            <article className="pillar-card">
-              <div className="pillar-icon" aria-hidden="true">/\\</div>
-              <h4>OUR VISION</h4>
-              <p>
-                With the combined efforts of our motivated and experienced professionals, our vision is to be one of the leading providers of Logistics,
-                Non-Vessel Operating Common Carrier, Trading and Consultancy Services recognized internationally. Moreover, our company envisions itself
-                as a catalyst of social and economic change in the trade industry through freight forwarding.
-              </p>
-            </article>
+            <div className="services-cards-grid">
+              <div className="service-horizontal-card">
+                <div className="card-image" style={{backgroundImage: `url(${'https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=600&h=400&fit=crop'})`}}></div>
+                <div className="card-content">
+                  <h3>Sea Freight Forwarding</h3>
+                  <p>Being a Non-Vessel Operating Common Carrier (NVOCC), 6R Diamond aims to be globally recognized.</p>
+                  <button className="yellow-card-btn">Learn More</button>
+                </div>
+              </div>
 
-            <article className="pillar-card">
-              <h4>Professionalism</h4>
-              <p>
-                Our company consists of highly trained and well-experienced professionals in the field of logistics, freight forwarding, and customs brokerage.
-              </p>
-            </article>
+              <div className="service-horizontal-card">
+                <div className="card-image" style={{backgroundImage: `url(${'https://s.yimg.com/ny/api/res/1.2/GBXm7hmH7CmH51QkEt1N6Q--/YXBwaWQ9aGlnaGxhbmRlcjt3PTY0MDtoPTM2MA--/https://media.zenfs.com/en/freightwaves_373/8c1fad91746c4f13eccac14ee9823d64'})`}}></div>
+                <div className="card-content">
+                  <h3>Air Freight Forwarding</h3>
+                  <p>6R Diamond upholds its commitment of providing fast, reliable and cost-efficient air freight.</p>
+                  <button className="yellow-card-btn">Learn More</button>
+                </div>
+              </div>
 
-            <article className="pillar-card">
-              <h4>Partnership</h4>
-              <p>
-                Putting premium in aligning with prestigious and reputable players in the industry, 6R DIAMOND INT&apos;L CARGO LOGISTICS INC. time and resources were
-                invested in the careful selection of domestic and international partners.
-              </p>
-            </article>
+              <div className="service-horizontal-card">
+                <div className="card-image" style={{backgroundImage: `url(${'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=600&h=400&fit=crop'})`}}></div>
+                <div className="card-content">
+                  <h3>Customs Clearance and Brokerage</h3>
+                  <p>With more than 40 years of experience in providing customs clearance and brokerage services.</p>
+                  <button className="yellow-card-btn">Learn More</button>
+                </div>
+              </div>
+
+              <div className="service-horizontal-card">
+                <div className="card-image" style={{backgroundImage: `url(${'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?w=600&h=400&fit=crop'})`}}></div>
+                <div className="card-content">
+                  <h3>Inland Transportation</h3>
+                  <p>6R Diamond offers a wide-range of inland transport services to its clients.</p>
+                  <button className="yellow-card-btn">Learn More</button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
+      
       <div className="bottom-content-wrapper">
-        <section id="services" className="services-list-section">
-          <div className="central-container services-other-wrap">
-            <div className="services-other-copy">
-              <h2 className="section-title-blue other-services-title">Other Services</h2>
-              <ul className="service-list other-services-list">
-                <li>Non Vessel Operation Common Carrier (NVOCC)</li>
+        <section className="services-list-section">
+          <div className="central-container">
+            <h2 className="section-title-blue">OUR SERVICES</h2>
+            <div className="services-columns-wrapper">
+              <ul className="service-list">
+                <li>Non-vessel Operating Common Carrier (NVOCC)</li>
                 <li>International Air and Sea Freight Forwarding</li>
                 <li>Domestic Air and Sea Freight Forwarding</li>
-                <li>Inland Transportation</li>
-                <li>Breakbulk Agent</li>
-                <li>Customs Clearance/Brokerage</li>
-                <li>Packing/Crating</li>
-                <li>Haulage/Heavy Lift Equipments</li>
-                <li>Logistics &amp; Warehousing</li>
-                <li>Vessel Chartering/Project Cargo (Tugboat and Barge/LCT)</li>
-                <li>Cargo Door to Door (Personal House Hold Goods Effect)</li>
+                <li>Customs Clearance and Brokerage</li>
+                <li>Inland Transportation Services</li>
+                <li>Breakbulk Agency</li>
+                <li>Import and Export Requirements Assistance</li>
               </ul>
-            </div>
-            <div className="services-other-image-wrap">
-              <img src={servicesOtherImg} alt="Cargo ship and airplane" className="services-other-image" />
-            </div>
-          </div>
-        </section>
-
-        <section className="delivery-equipment-section">
-          <div className="central-container delivery-equipment-wrap">
-            <div className="delivery-left">
-              <h3>OUR DELIVERY EQUIPMENT</h3>
-              <img src={servicesTruckIcon} alt="Delivery truck icon" className="delivery-truck-icon" />
-            </div>
-            <div className="delivery-grid">
-              <div className="delivery-item">
-                <span className="delivery-circle">3</span>
-                <p>40-Footer Trailer Truck</p>
-              </div>
-              <div className="delivery-item">
-                <span className="delivery-circle">6</span>
-                <p>20-Footer Trailer Truck</p>
-              </div>
-              <div className="delivery-item">
-                <span className="delivery-circle">7</span>
-                <p>Tractor Head</p>
-              </div>
-              <div className="delivery-item">
-                <span className="delivery-circle">2</span>
-                <p>4-Wheeler Delivery van</p>
-              </div>
+              <ul className="service-list">
+                <li>Documentation Services</li>
+                <li>Packing and Crating</li>
+                <li>Haulage and Heavy Lift Equipment</li>
+                <li>Vessel Chartering</li>
+                <li>Project Cargo (Tugboat and Barge / LCT)</li>
+                <li>Cargo Door to Door (Personal Household Goods Effect)</li>
+              </ul>
             </div>
           </div>
         </section>
@@ -280,12 +195,12 @@ const Central = ({ initialSection = 'home' }) => {
         <section id="contact" className="footer-cta-bar">
           <div className="central-container cta-split">
             <div className="cta-message">
-              <h3><strong>Hundreds of companies</strong> were already helped by us</h3>
-              <p>Let us know how we can help you better</p>
+              <h3>Let us know how we can be of help. We will be glad to serve you.</h3>
+              <p>See how we can help you move forward.</p>
             </div>
-            <button className="contact-yellow-btn">
-              Contact Us <span className="arrow">→</span>
-            </button>
+            <Link to="/contact" className="contact-yellow-btn">
+              Contact Us <span className="arrow">-&gt;</span>
+            </Link>
           </div>
         </section>
       </div>
@@ -325,9 +240,9 @@ const Central = ({ initialSection = 'home' }) => {
               <h4 className="footer-heading">SITEMAP</h4>
               <ul className="footer-nav-links">
                 <li><a href="#home">Home</a></li>
-                <li><a href="#about">About Us</a></li>
-                <li><a href="#services">Services</a></li>
-                <li><a href="#contact">Contact Us</a></li>
+                <li><Link to="/about">About Us</Link></li>
+                <li><Link to="/services">Services</Link></li>
+                <li><Link to="/contact">Contact Us</Link></li>
               </ul>
             </div>
           </div>

@@ -3,6 +3,9 @@ import { Suspense, lazy } from 'react';
 
 // Lazy load components
 const Central = lazy(() => import('./pages/Company/Central'));
+const AboutPage = lazy(() => import('./pages/Company/AboutPage'));
+const ServicesPage = lazy(() => import('./pages/Company/ServicesPage'));
+const ContactPage = lazy(() => import('./pages/Company/ContactPage'));
 const ApplyLanding = lazy(() => import('./pages/Apply/ApplyLanding'));
 const SelectBranch = lazy(() => import('./pages/Apply/SelectBranch'));
 const SelectPosition = lazy(() => import('./pages/Apply/SelectPosition'));
@@ -20,7 +23,9 @@ function App() {
         <Routes>
           {/* Landing & Branch */}
           <Route path="/" element={<Central />} />
-          <Route path="/about" element={<Central initialSection="about" />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/services" element={<ServicesPage />} />
+          <Route path="/contact" element={<ContactPage />} />
           <Route path="/apply" element={<ApplyLanding />} />
           <Route path="/apply/branch" element={<SelectBranch />} />
           
