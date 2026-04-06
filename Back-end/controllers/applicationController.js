@@ -416,6 +416,166 @@ exports.getUpcomingInterviews = async (req, res) => {
     }
 };
 
+exports.getInterviewQueue = async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('applicantfacttable')
+            .select(`
+                applicant_no,
+                schedule_id,
+                status:status_id!inner(applied, interview, hired, rejected),
+                applicant:applicant_no(first_name, last_name, position_applied, branch),
+                schedule:schedule_id(interview_schedule, interview_time, location, room_number, reminders)
+            `)
+            .eq('status.interview', 1)
+            .order('applied_date', { ascending: true });
+
+        if (error) throw error;
+
+        const queue = (data || []).map((row) => ({
+            applicantNo: row.applicant_no,
+            name: `${row?.applicant?.first_name || ''} ${row?.applicant?.last_name || ''}`.trim() || 'N/A',
+            position: row?.applicant?.position_applied || 'Not assigned',
+            branch: row?.applicant?.branch || 'Not assigned',
+            status: 'Interview',
+            schedule: row?.schedule
+                ? {
+                    date: row.schedule.interview_schedule || null,
+                    time: row.schedule.interview_time || null,
+                    location: row.schedule.location || null,
+                    room: row.schedule.room_number || null,
+                    reminders: row.schedule.reminders || null
+                }
+                : null
+        }));
+
+        res.json({ total: queue.length, queue });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
+exports.saveInterviewSchedules = async (req, res) => {
+    const payload = req.body || {};
+
+    const rows = Array.isArray(payload.schedules)
+        ? payload.schedules
+        : (payload.applicantNo || payload.applicant_no)
+            ? [payload]
+            : [];
+
+    if (rows.length === 0) {
+        return res.status(400).json({ error: 'No interview schedule payload received.' });
+    }
+
+    const created = [];
+
+    try {
+        for (let i = 0; i < rows.length; i++) {
+            const row = rows[i] || {};
+            const applicantNo = String(row.applicantNo || row.applicant_no || '').trim();
+            const interviewDate = String(row.date || row.interview_schedule || '').trim();
+            const interviewTime = String(row.time || row.interview_time || '').trim();
+            const location = String(row.location || '').trim() || null;
+            const roomNumber = String(row.room || row.room_number || '').trim() || null;
+            const reminders = String(row.reminders || '').trim() || null;
+
+            if (!applicantNo || !interviewDate || !interviewTime) {
+                return res.status(400).json({ error: 'Each schedule requires applicantNo, date, and time.' });
+            }
+
+            const schedulePayload = {
+                interview_schedule: interviewDate,
+                interview_time: interviewTime,
+                location: location,
+                room_number: roomNumber,
+                reminders: reminders
+            };
+
+            let insertResult = await supabase
+                .from('schedule')
+                .insert([schedulePayload])
+                .select('schedule_id')
+                .single();
+
+            if (insertResult.error && String(insertResult.error.message || '').toLowerCase().includes('schedule_id')) {
+                insertResult = await supabase
+                    .from('schedule')
+                    .insert([{
+                        schedule_id: `SCH-${Date.now()}-${i + 1}`,
+                        ...schedulePayload
+                    }])
+                    .select('schedule_id')
+                    .single();
+            }
+
+            if (insertResult.error) throw insertResult.error;
+            const scheduleId = insertResult.data?.schedule_id;
+
+            const { data: factData, error: factError } = await supabase
+                .from('applicantfacttable')
+                .select('status_id')
+                .eq('applicant_no', applicantNo)
+                .maybeSingle();
+
+            if (factError) throw factError;
+
+            if (factData?.status_id) {
+                const { error: statusUpdateError } = await supabase
+                    .from('status')
+                    .update({ applied: 0, interview: 1, hired: 0, rejected: 0 })
+                    .eq('status_id', factData.status_id);
+                if (statusUpdateError) throw statusUpdateError;
+
+                const { error: factUpdateError } = await supabase
+                    .from('applicantfacttable')
+                    .update({ schedule_id: scheduleId })
+                    .eq('applicant_no', applicantNo);
+                if (factUpdateError) throw factUpdateError;
+            } else {
+                const { data: appData } = await supabase
+                    .from('applicant')
+                    .select('first_name, last_name')
+                    .eq('applicant_no', applicantNo)
+                    .maybeSingle();
+
+                const applicantName = appData
+                    ? `${appData.first_name || ''} ${appData.last_name || ''}`.trim()
+                    : 'Unknown';
+
+                const { data: statusInsert, error: statusInsertError } = await supabase
+                    .from('status')
+                    .insert([{
+                        applied: 0,
+                        interview: 1,
+                        hired: 0,
+                        rejected: 0,
+                        applicant_no: applicantNo,
+                        applicant_name: applicantName
+                    }])
+                    .select('status_id')
+                    .single();
+                if (statusInsertError) throw statusInsertError;
+
+                const { error: factInsertError } = await supabase
+                    .from('applicantfacttable')
+                    .insert([{
+                        applicant_no: applicantNo,
+                        status_id: statusInsert.status_id,
+                        schedule_id: scheduleId
+                    }]);
+                if (factInsertError) throw factInsertError;
+            }
+
+            created.push({ applicantNo, scheduleId, interviewDate, interviewTime });
+        }
+
+        res.status(201).json({ message: 'Interview schedule saved.', schedules: created });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+};
+
 exports.recordJobView = async (req, res) => {
     const { roleId, branch } = req.body || {};
     if (!roleId) return res.status(400).json({ error: 'roleId required' });
