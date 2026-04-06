@@ -19,7 +19,7 @@ const ROLES_DATA = [
   { id: 'brokerage-specialist', title: 'Brokerage Specialist', desc: 'Specialize in brokerage operations and client services' },
   { id: 'import-export-head', title: 'Import & Export Head', desc: 'Lead import and export operations and compliance' },
   { id: 'admin-staff', title: 'Administration Staff', desc: 'Support administrative and operational functions' },
-  { id: 'doc-head', title: 'Documentations Head', desc: 'Manage documentation processes and compliance records' },
+  { id: 'doc-head', title: 'Documentation Head', desc: 'Manage documentation processes and compliance records' },
 ];
 
 const normalizeTitle = (value) => String(value || '')
@@ -28,6 +28,16 @@ const normalizeTitle = (value) => String(value || '')
   .replace(/[^a-z0-9]+/g, ' ')
   .replace(/\s+/g, ' ')
   .trim();
+
+const getTitleAliases = (role) => {
+  if (role?.id === 'doc-head') {
+    return [normalizeTitle('Documentation Head'), normalizeTitle('Doc Head'), normalizeTitle('Documentations Head')];
+  }
+  return [normalizeTitle(role?.title)];
+};
+
+const normalizeDocHeadText = (value) =>
+  String(value || '').replace(/\bDoc Head\b/gi, 'Documentation Head').replace(/\bDocumentations Head\b/gi, 'Documentation Head');
 
 const SelectPosition = () => {
   const navigate = useNavigate();
@@ -160,11 +170,9 @@ const SelectPosition = () => {
               {ROLES_DATA.map((role) => {
               
               // Compare DB Titles with Role Titles
-              const isAvailable = availableJobTitles.some(
-                  dbTitle => normalizeTitle(dbTitle) === normalizeTitle(role.title)
-              );
-
-                const roleDescription = jobDescriptionByTitle[normalizeTitle(role.title)] || role.desc;
+              const aliases = getTitleAliases(role);
+              const isAvailable = availableJobTitles.some((dbTitle) => aliases.includes(normalizeTitle(dbTitle)));
+              const roleDescription = normalizeDocHeadText(aliases.map((alias) => jobDescriptionByTitle[alias]).find(Boolean) || role.desc);
 
               return (
                 <div 

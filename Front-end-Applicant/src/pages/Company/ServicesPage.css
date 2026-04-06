@@ -249,3 +249,77 @@
     font-size: 20px;
   }
 }
+
+@media (max-width: 768px) {
+  .services-main {
+    padding-top: 8px;
+  }
+
+  .services-hero {
+    height: 130px;
+  }
+
+  .services-hero h1 {
+    font-size: 22px;
+  }
+
+  .services-hero p {
+    font-size: 13px;
+    margin-top: 6px;
+  }
+
+  .services-blue-panel {
+    padding: 24px 12px;
+  }
+
+  .services-blue-inner {
+    gap: 14px;
+  }
+
+  .services-blue-inner p {
+    font-size: 13px;
+    line-height: 1.55;
+  }
+
+  .services-card-grid,
+  .other-services {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .other-services ul {
+    padding-left: 20px;
+  }
+
+  .delivery-equipment-section {
+    padding: 26px 12px 22px;
+  }
+
+  .delivery-left h3 {
+    font-size: 20px;
+    margin-bottom: 12px;
+  }
+
+  .delivery-truck-icon {
+    width: 110px;
+  }
+
+  .delivery-grid {
+    gap: 14px;
+  }
+
+  .delivery-circle {
+    width: 56px;
+    height: 56px;
+    font-size: 34px;
+  }
+
+  .delivery-item {
+    gap: 10px;
+  }
+
+  .delivery-item p {
+    font-size: 14px;
+    line-height: 1.3;
+  }
+}

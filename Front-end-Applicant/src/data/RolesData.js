@@ -140,7 +140,7 @@ export const rolesData = {
 
   "docs-head": {
     id: "docs-head",
-    title: "Documentations Head",
+    title: "Documentation Head",
     description: "Manage documentation processes and compliance records",
     isOpen: { manila: false, cebu: false, davao: false },
     responsibilities: [], qualifications: [], benefits: []

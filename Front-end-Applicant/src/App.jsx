@@ -1,5 +1,5 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Suspense, lazy } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Suspense, lazy, useEffect } from 'react';
 
 // Lazy load components
 const Central = lazy(() => import('./pages/Company/Central'));
@@ -16,9 +16,20 @@ const Confirmation = lazy(() => import('./pages/Apply/Confirmation'));
 const Success = lazy(() => import('./pages/Apply/Success'));
 const StatusDashboard = lazy(() => import('./pages/Status/StatusDashboard'));
 
+function ScrollToTopOnRouteChange() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [pathname]);
+
+  return null;
+}
+
 function App() {
   return (
     <Router>
+      <ScrollToTopOnRouteChange />
       <Suspense fallback={<div style={{display: 'flex', justifyContent: 'center', marginTop: '50px'}}>Loading...</div>}>
         <Routes>
           {/* Landing & Branch */}

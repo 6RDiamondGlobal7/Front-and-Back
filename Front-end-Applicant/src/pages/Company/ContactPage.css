@@ -87,3 +87,41 @@
     font-size: 16px;
   }
 }
+
+@media (max-width: 768px) {
+  .contact-main {
+    padding-top: 8px;
+    min-height: auto;
+  }
+
+  .contact-details-section {
+    padding: 16px 12px 24px;
+  }
+
+  .contact-details-inner h1 {
+    font-size: 30px;
+  }
+
+  .contact-lead {
+    font-size: 14px;
+    margin: 14px 0 18px;
+    line-height: 1.55;
+  }
+
+  .contact-cards {
+    gap: 12px;
+  }
+
+  .contact-card {
+    padding: 16px 12px;
+  }
+
+  .contact-card h2 {
+    font-size: 22px;
+  }
+
+  .contact-card p {
+    font-size: 14px;
+    line-height: 1.55;
+  }
+}

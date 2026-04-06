@@ -17,6 +17,9 @@ const normalizeTitle = (value) => String(value || '')
   .replace(/\s+/g, ' ')
   .trim();
 
+const normalizeDocHeadText = (value) =>
+  String(value || '').replace(/\bDoc Head\b/gi, 'Documentation Head').replace(/\bDocumentations Head\b/gi, 'Documentation Head');
+
 const RoleDetails = () => {
   const navigate = useNavigate();
   const { branch, roleId } = useParams();
@@ -37,7 +40,7 @@ const RoleDetails = () => {
     'brokerage-specialist': 'Brokerage Specialist',
     'import-export-head': 'Import & Export Head',
     'admin-staff': 'Administration Staff',
-    'doc-head': 'Documentations Head'
+    'doc-head': 'Documentation Head'
   };
 
   const handleBack = () => {
@@ -66,8 +69,13 @@ const RoleDetails = () => {
         const response = await axios.get(`${API_BASE_URL}/api/jobs`);
         const jobs = Array.isArray(response.data) ? response.data : [];
         const branchKey = String(branch).toLowerCase();
+        const normalizedRoleTitle = normalizeTitle(roleTitle);
+        const docHeadAliases = roleId === 'doc-head'
+          ? [normalizeTitle('Documentation Head'), normalizeTitle('Doc Head'), normalizeTitle('Documentations Head')]
+          : [normalizedRoleTitle];
+
         const match = jobs.find((job) => (
-          normalizeTitle(job?.job_title) === normalizeTitle(roleTitle) &&
+          docHeadAliases.includes(normalizeTitle(job?.job_title)) &&
           String(job?.branch || '').trim().toLowerCase() === branchKey &&
           (String(job?.description || '').trim() || normalizeList(job?.responsibilities).length > 0 || normalizeList(job?.qualifications).length > 0 || normalizeList(job?.benefits).length > 0)
         ));
@@ -192,7 +200,7 @@ const RoleDetails = () => {
   };
 
   const content = getRoleContent();
-  const subtitleDescription = liveDescription || content.desc;
+  const subtitleDescription = normalizeDocHeadText(liveDescription || content.desc);
   const responsibilities = liveSections.responsibilities.length > 0 ? liveSections.responsibilities : content.responsibilities;
   const qualifications = liveSections.qualifications.length > 0 ? liveSections.qualifications : content.qualifications;
   const benefits = liveSections.benefits.length > 0 ? liveSections.benefits : content.benefits;

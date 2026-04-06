@@ -147,7 +147,7 @@ const ROLE_ID_TO_TITLE = {
     'brokerage-specialist': 'Brokerage Specialist',
     'import-export-head': 'Import & Export Head',
     'admin-staff': 'Administration Staff',
-    'doc-head': 'Documentations Head'
+    'doc-head': 'Documentation Head'
 };
 
 const TITLE_TO_ROLE_IDS = Object.entries(ROLE_ID_TO_TITLE).reduce((acc, [roleId, title]) => {

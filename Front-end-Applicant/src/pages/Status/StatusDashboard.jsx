@@ -78,7 +78,7 @@ const formatRole = (value) => {
     'brokerage-specialist': 'Brokerage Specialist',
     'import-export-head': 'Import and Export Head',
     'admin-staff': 'Administration Staff',
-    'doc-head': 'Documentations Head'
+    'doc-head': 'Documentation Head'
   };
   return roles[value] || value;
 };

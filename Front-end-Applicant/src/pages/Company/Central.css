@@ -582,6 +582,7 @@
 /* Responsive Fix */
 @media (max-width: 768px) {
   .central-header {
+    position: static;
     padding: 12px 14px;
   }
 
@@ -618,7 +619,7 @@
 
   .hero-section {
     min-height: 72vh;
-    padding: 130px 14px 60px;
+    padding: 48px 14px 48px;
   }
 
   .hero-content {
@@ -642,7 +643,7 @@
   }
 
   .about-section.top-accent-line {
-    margin-top: 120px;
+    margin-top: 0;
     padding-top: 30px;
   }
 

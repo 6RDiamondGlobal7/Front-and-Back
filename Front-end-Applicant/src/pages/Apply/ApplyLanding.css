@@ -16,7 +16,8 @@
   padding: 40px;
   box-sizing: border-box;
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   z-index: 0;
 }
 
@@ -555,5 +556,124 @@
   }
   .al-logo-image {
     max-width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .al-page-container {
+    min-height: 100svh;
+    padding: 16px 12px 32px;
+    align-items: stretch;
+    justify-content: flex-start;
+  }
+
+  .al-home-btn {
+    position: sticky;
+    top: 10px;
+    left: auto;
+    align-self: flex-start;
+    font-size: 16px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    z-index: 120;
+    margin-bottom: 16px;
+  }
+
+  .al-grid-layout {
+    gap: 18px;
+  }
+
+  .al-main-card {
+    padding: 22px 16px;
+    border-radius: 24px;
+  }
+
+  .al-title {
+    font-size: 24px;
+    text-align: center;
+  }
+
+  .al-subtitle {
+    font-size: 14px;
+    margin-bottom: 22px;
+    text-align: center;
+  }
+
+  .al-option-box {
+    padding: 18px 14px;
+    border-radius: 16px;
+  }
+
+  .al-box-title {
+    font-size: 16px;
+  }
+
+  .al-box-desc {
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+
+  .al-btn-yellow,
+  .al-btn-blue {
+    font-size: 16px;
+    padding: 14px 16px;
+    border-radius: 12px;
+  }
+
+  .al-branding-col {
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+
+  .al-glass-logo {
+    padding: 24px 16px;
+    border-radius: 20px;
+  }
+
+  .al-branding-text h3 {
+    font-size: 22px;
+    margin-bottom: 8px;
+  }
+
+  .al-branding-text p {
+    font-size: 14px;
+  }
+
+  .al-modal-overlay {
+    align-items: flex-start;
+    padding: 10px;
+    overflow-y: auto;
+  }
+
+  .al-modal-content {
+    max-height: calc(100svh - 20px);
+    border-radius: 16px;
+    margin: 0 auto;
+  }
+
+  .al-modal-header,
+  .al-modal-body,
+  .al-modal-footer {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  .al-modal-header h2,
+  .al-status-header h2 {
+    font-size: 20px !important;
+  }
+
+  .al-status-subtitle {
+    font-size: 14px !important;
+    padding: 0 !important;
+  }
+
+  .al-input-label {
+    font-size: 16px;
+  }
+
+  .al-btn-login-gold {
+    font-size: 16px;
+    padding: 14px;
   }
 }
