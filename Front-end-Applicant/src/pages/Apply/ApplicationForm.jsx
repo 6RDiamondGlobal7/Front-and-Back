@@ -220,6 +220,12 @@ const ApplicationForm = () => {
   const regionLocationsCache = useRef({});
   const barangayCache = useRef({});
 
+  const sanitizeMiddleInitial = (value) =>
+    (value || '')
+      .replace(/[^a-zA-Z]/g, '')
+      .toUpperCase()
+      .slice(0, 2);
+
   // UPDATED REGIONS WITH FULL ABBREVIATIONS
   const regions = [
     { value: 'NCR - National Capital Region', label: 'NCR - National Capital Region', code: '1300000000' },
@@ -406,6 +412,8 @@ const ApplicationForm = () => {
         setFormData(prev => ({ ...prev, [name]: numericValue }));
         if (numericValue.length === 11 && numericValue.startsWith('0')) setContactError(false);
       }
+    } else if (name === 'middleInitial') {
+      setFormData(prev => ({ ...prev, middleInitial: sanitizeMiddleInitial(value) }));
     } else if (name === 'region') {
       setFormData(prev => ({
         ...prev,
@@ -527,7 +535,7 @@ const ApplicationForm = () => {
             <div className="af-grid">
               <div className="af-group"><label className="af-label">First Name <span className="req">*</span></label><input type="text" name="firstName" className="af-input" placeholder="e.g., Juan" value={formData.firstName} onChange={handleChange} /></div>
               <div className="af-group"><label className="af-label">Last Name <span className="req">*</span></label><input type="text" name="lastName" className="af-input" placeholder="e.g., Dela Cruz" value={formData.lastName} onChange={handleChange} /></div>
-              <div className="af-group"><label className="af-label">Middle Initial (Optional)</label><input type="text" name="middleInitial" className="af-input" placeholder="e.g., P" value={formData.middleInitial} onChange={handleChange} /></div>
+              <div className="af-group"><label className="af-label">Middle Initial (Optional)</label><input type="text" name="middleInitial" className="af-input" placeholder="e.g., PA" value={formData.middleInitial} onChange={handleChange} maxLength={2} /></div>
               <div className="af-group"><label className="af-label">Suffix (Optional)</label><input type="text" name="suffix" className="af-input" placeholder="e.g., Jr., III" value={formData.suffix} onChange={handleChange} /></div>
               <div className="af-group"><label className="af-label">Nationality <span className="req">*</span></label><input type="text" name="nationality" className="af-input" placeholder="e.g., Filipino" value={formData.nationality} onChange={handleChange} /></div>
               <div className="af-group">

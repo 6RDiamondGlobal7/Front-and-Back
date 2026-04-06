@@ -39,19 +39,10 @@ const ApplicationReview = () => {
   const [agreed, setAgreed] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [showIncomplete, setShowIncomplete] = useState(false);
-  const [showNameMismatch, setShowNameMismatch] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showSample, setShowSample] = useState(false);
   const [signature, setSignature] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [emailDeliveryWarning, setEmailDeliveryWarning] = useState('');
-
-  const normalizeName = (value) => String(value || '')
-    .trim()
-    .replace(/\s+/g, ' ')
-    .toUpperCase();
-
-  const expectedSignature = normalizeName(`${formData.firstName || ''} ${formData.lastName || ''}`);
 
   const handleBack = () => {
     localStorage.setItem('formStep', '4');
@@ -60,19 +51,11 @@ const ApplicationReview = () => {
 
   // --- SUBMIT FUNCTION WITH FILES ---
   const handleConfirmAction = async () => {
-    const normalizedSignature = normalizeName(signature);
-
-    if (!normalizedSignature) {
+    if (!signature.trim()) {
       setShowConfirm(false);
       setTimeout(() => setShowIncomplete(true), 100);
       return;
-    }
-
-    if (normalizedSignature !== expectedSignature) {
-      setShowConfirm(false);
-      setTimeout(() => setShowNameMismatch(true), 100);
-      return;
-    }
+    } 
 
     setIsSubmitting(true);
 
@@ -121,10 +104,6 @@ const ApplicationReview = () => {
 
         if (response.status === 201) {
             console.log("Success! Applicant ID:", response.data.applicantId);
-          const warning = String(response.data?.emailWarning || '').trim();
-          const emailSent = response.data?.emailSent !== false;
-
-          setEmailDeliveryWarning(emailSent ? '' : (warning || 'Email delivery failed. Please contact HR support for credential resend.'));
             setShowConfirm(false);
             setTimeout(() => setShowSuccess(true), 100);
         }
@@ -254,53 +233,13 @@ const ApplicationReview = () => {
         </div>
       )}
 
-      {showIncomplete && (
-        <div className="af-modal-overlay">
-          <div className="af-modal-yellow-box center fade-in" style={{ maxWidth: '420px', padding: '36px 28px' }}>
-            <button className="af-modal-yellow-close" onClick={() => setShowIncomplete(false)}><IconCloseDark /></button>
-            <div className="af-yellow-icon-circle"><IconWarningLarge /></div>
-            <h3 className="af-modal-yellow-title">Missing Confirmation Name</h3>
-            <p className="af-modal-yellow-desc">Please type your full name before confirming submission.</p>
-            <button className="af-yellow-btn-ok" onClick={() => { setShowIncomplete(false); setShowConfirm(true); }}>
-              Back to Confirmation
-            </button>
-          </div>
-        </div>
-      )}
-
-      {showNameMismatch && (
-        <div className="af-modal-overlay">
-          <div className="af-modal-yellow-box center fade-in" style={{ maxWidth: '460px', padding: '36px 28px' }}>
-            <button className="af-modal-yellow-close" onClick={() => setShowNameMismatch(false)}><IconCloseDark /></button>
-            <div className="af-yellow-icon-circle"><IconWarningLarge /></div>
-            <h3 className="af-modal-yellow-title">Name Does Not Match</h3>
-            <p className="af-modal-yellow-desc" style={{ marginBottom: '10px' }}>
-              Please type your name exactly as entered in the form:
-            </p>
-            <p className="af-modal-yellow-desc" style={{ fontWeight: 700, color: '#1e293b' }}>{expectedSignature}</p>
-            <button className="af-yellow-btn-ok" onClick={() => { setShowNameMismatch(false); setShowConfirm(true); }}>
-              Try Again
-            </button>
-          </div>
-        </div>
-      )}
-
       {showSuccess && (
         <div className="af-modal-overlay">
           <div className="af-modal-yellow-box center fade-in" style={{maxWidth: '420px', padding: '48px 32px'}}>
             <button className="af-modal-yellow-close" onClick={() => navigate('/apply')}><IconCloseDark /></button>
             <div className="af-yellow-icon-circle success"><IconCheckCircleBlue /></div>
             <h3 className="af-modal-yellow-title">Application Submitted!</h3>
-            <p className="af-modal-yellow-desc">
-              {emailDeliveryWarning
-                ? 'Your application was submitted, but credential email delivery failed. Please contact HR support.'
-                : 'Your application and documents have been sent. Your applicant number and password were also sent to your email.'}
-            </p>
-            {emailDeliveryWarning && (
-              <p className="af-modal-yellow-desc" style={{ color: '#b45309', fontSize: '13px', marginTop: '8px' }}>
-                {emailDeliveryWarning}
-              </p>
-            )}
+            <p className="af-modal-yellow-desc">Your application and documents have been sent. Your applicant number and password were also sent to your email.</p>
             <button className="af-yellow-btn-ok" onClick={() => navigate('/apply')}>Close</button>
           </div>
         </div>

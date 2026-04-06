@@ -1,169 +1,21 @@
 const supabase = require('../config/supabaseClient');
 const nodemailer = require('nodemailer'); // 1. Import Nodemailer
 const crypto = require('crypto'); // <-- Added crypto module
-const dns = require('dns');
-
-try {
-    // Render networking can fail on IPv6-only resolution for SMTP endpoints.
-    dns.setDefaultResultOrder('ipv4first');
-} catch (_) {
-    // Ignore on Node runtimes that do not support this API.
-}
 
 // ==========================================
 // --- Email Transporter Configuration ---
 // ==========================================
-const emailUser = String(process.env.EMAIL_USER || process.env.VITE_EMAIL_USER || '').trim();
-const emailPass = String(process.env.EMAIL_PASS || process.env.VITE_EMAIL_PASS || '').replace(/\s+/g, '');
-const smtpHost = String(process.env.SMTP_HOST || 'smtp.gmail.com').trim();
-const smtpPort = Number.parseInt(process.env.SMTP_PORT || '587', 10);
-const smtpSecure = String(process.env.SMTP_SECURE || '').trim().toLowerCase() === 'true' || smtpPort === 465;
-const resendApiKey = String(process.env.RESEND_API_KEY || '').trim();
-const resendFromEmail = String(process.env.RESEND_FROM_EMAIL || '').trim();
-
-let emailTransportVerified = false;
-let transporter = null;
-
-const resolveIpv4Host = (hostname) => new Promise((resolve) => {
-    dns.lookup(hostname, { family: 4, all: false }, (error, address) => {
-        if (error || !address) {
-            resolve(hostname);
-            return;
-        }
-        resolve(address);
-    });
+const transporter = nodemailer.createTransport({
+    service: 'gmail', 
+    auth: {
+        user: String(process.env.EMAIL_USER || '').trim(),
+        pass: String(process.env.EMAIL_PASS || '').replace(/\s+/g, '')
+    }
 });
-
-const getTransporter = async () => {
-    if (transporter) return transporter;
-
-    const smtpConnectionHost = await resolveIpv4Host(smtpHost);
-    transporter = nodemailer.createTransport({
-        host: smtpConnectionHost,
-        port: smtpPort,
-        secure: smtpSecure,
-        requireTLS: !smtpSecure,
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-        socketTimeout: 15000,
-        localAddress: '0.0.0.0',
-        auth: {
-            user: emailUser,
-            pass: emailPass
-        },
-        tls: {
-            servername: smtpHost
-        }
-    });
-
-    return transporter;
-};
-
-const ensureEmailTransport = async () => {
-    if (!emailUser || !emailPass) {
-        throw new Error('Email sender credentials are missing. Set EMAIL_USER and EMAIL_PASS.');
-    }
-
-    const activeTransporter = await getTransporter();
-
-    if (!emailTransportVerified) {
-        await activeTransporter.verify();
-        emailTransportVerified = true;
-    }
-
-    return activeTransporter;
-};
-
-const sendViaResend = async ({ to, subject, html }) => {
-    if (!resendApiKey || !resendFromEmail) {
-        throw new Error('Resend credentials missing. Set RESEND_API_KEY and RESEND_FROM_EMAIL.');
-    }
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
-
-    try {
-        const response = await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${resendApiKey}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                from: resendFromEmail,
-                to: [to],
-                subject,
-                html
-            }),
-            signal: controller.signal
-        });
-
-        if (!response.ok) {
-            const body = await response.text();
-            throw new Error(`Resend error ${response.status}: ${body}`);
-        }
-    } finally {
-        clearTimeout(timeout);
-    }
-};
-
-const isResendRecipientRestrictionError = (error) => {
-    const message = String(error?.message || '').toLowerCase();
-    return (
-        message.includes('resend error 403') &&
-        message.includes('you can only send testing emails to your own email address')
-    );
-};
-
-const sendEmailMessage = async ({ to, subject, html }) => {
-    const canUseResend = Boolean(resendApiKey && resendFromEmail);
-    const canUseSmtp = Boolean(emailUser && emailPass);
-
-    if (canUseResend) {
-        try {
-            await sendViaResend({ to, subject, html });
-            return;
-        } catch (resendErr) {
-            if (canUseSmtp) {
-                try {
-                    const activeTransporter = await ensureEmailTransport();
-                    await activeTransporter.sendMail({
-                        from: `"6R Diamond Recruitment" <${emailUser}>`,
-                        to,
-                        subject,
-                        html
-                    });
-                    console.warn(`Resend failed; SMTP fallback succeeded for recipient ${to}. Reason: ${resendErr.message}`);
-                    return;
-                } catch (smtpErr) {
-                    throw new Error(`Resend failed (${resendErr.message}); SMTP fallback failed (${smtpErr.message})`);
-                }
-            }
-            throw resendErr;
-        }
-    }
-
-    if (canUseSmtp) {
-        const activeTransporter = await ensureEmailTransport();
-        await activeTransporter.sendMail({
-            from: `"6R Diamond Recruitment" <${emailUser}>`,
-            to,
-            subject,
-            html
-        });
-        return;
-    }
-
-    throw new Error(
-        'No email provider is configured. Set RESEND_API_KEY + RESEND_FROM_EMAIL or EMAIL_USER + EMAIL_PASS.'
-    );
-};
 
 const passwordResetStore = new Map();
 const PASSWORD_RESET_EXPIRY_MS = 15 * 60 * 1000;
-let hrEmailColumnAvailable = null;
-const responseCache = new Map();
-const DEFAULT_CACHE_TTL_MS = Number.parseInt(process.env.API_CACHE_TTL_MS || '15000', 10);
+let employeeEmailColumnAvailable = null;
 
 // ==========================================
 // --- Helper Functions ---
@@ -219,34 +71,6 @@ const toIntegerInRange = (value, min, max, fallback) => {
 };
 
 const normalizeText = (value) => String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
-
-const makeCacheKey = (scope, payload = {}) => `${scope}:${JSON.stringify(payload)}`;
-
-const getCachedResponse = (key) => {
-    const cached = responseCache.get(key);
-    if (!cached) return null;
-    if (Date.now() >= cached.expiresAt) {
-        responseCache.delete(key);
-        return null;
-    }
-    return cached.value;
-};
-
-const setCachedResponse = (key, value, ttlMs = DEFAULT_CACHE_TTL_MS) => {
-    responseCache.set(key, {
-        value,
-        expiresAt: Date.now() + Math.max(1000, ttlMs)
-    });
-};
-
-const invalidateCacheByScopes = (scopes = []) => {
-    if (!Array.isArray(scopes) || scopes.length === 0) return;
-    for (const key of responseCache.keys()) {
-        if (scopes.some((scope) => key.startsWith(`${scope}:`))) {
-            responseCache.delete(key);
-        }
-    }
-};
 
 const normalizeList = (value) => {
     if (!Array.isArray(value)) return [];
@@ -310,7 +134,7 @@ const enrichJobPosting = (job) => {
         responsibilities: responsibilities.length > 0 ? responsibilities : derived.responsibilities,
         qualifications: qualifications.length > 0 ? qualifications : derived.qualifications,
         benefits: benefits.length > 0 ? benefits : derived.benefits,
-        summary: String(job?.summary || '').trim() || String(job?.description || '').trim() || null
+        summary: String(job?.description || '').trim() || null
     };
 };
 
@@ -334,44 +158,6 @@ const TITLE_TO_ROLE_IDS = Object.entries(ROLE_ID_TO_TITLE).reduce((acc, [roleId,
 }, {});
 
 const isJobActive = (status) => status === true || status === 'true' || status === 'Open' || status === 'Active';
-
-const makeApplicantCountKey = (title, branch) => `${title}::${branch || '*'}`;
-
-const buildApplicantCountIndex = (applicants = []) => {
-    const counts = new Map();
-
-    const add = (title, branch) => {
-        if (!title) return;
-        const key = makeApplicantCountKey(title, branch);
-        counts.set(key, (counts.get(key) || 0) + 1);
-    };
-
-    for (const applicant of applicants) {
-        const normalizedPosition = normalizeText(applicant?.position_applied);
-        const normalizedRoleTitle = normalizeText(ROLE_ID_TO_TITLE[applicant?.position_applied]);
-        const normalizedBranch = normalizeText(applicant?.branch);
-        const titles = new Set([normalizedPosition, normalizedRoleTitle].filter(Boolean));
-
-        for (const title of titles) {
-            add(title, '*');
-            if (normalizedBranch) add(title, normalizedBranch);
-        }
-    }
-
-    return counts;
-};
-
-const countApplicantsForJob = (job, applicantCountIndex) => {
-    const jobTitle = normalizeText(job?.job_title);
-    if (!jobTitle) return 0;
-
-    const jobBranch = normalizeText(job?.branch);
-    if (jobBranch) {
-        return applicantCountIndex.get(makeApplicantCountKey(jobTitle, jobBranch)) || 0;
-    }
-
-    return applicantCountIndex.get(makeApplicantCountKey(jobTitle, '*')) || 0;
-};
 
 const parseViewTimestamp = (eventId) => {
     const match = String(eventId || '').match(/^VIEW-(\d+)/);
@@ -456,10 +242,10 @@ const buildJobPostingsSnapshot = async () => {
         .select('event_id, created_at');
     if (viewEventsError) throw viewEventsError;
 
-    const applicantCountIndex = buildApplicantCountIndex(applicants || []);
-    const jobsWithCounts = (jobs || []).map((job) => (
-        enrichJobPosting({ ...job, total_applicants: countApplicantsForJob(job, applicantCountIndex) })
-    ));
+    const jobsWithCounts = (jobs || []).map((job) => {
+        const applicantCount = (applicants || []).filter((applicant) => applicantMatchesJob(applicant, job)).length;
+        return enrichJobPosting({ ...job, total_applicants: applicantCount });
+    });
 
     const activeJobPosts = jobsWithCounts.filter((job) => isJobActive(job.job_status)).length;
     const totalApplications = (applicants || []).length;
@@ -502,75 +288,36 @@ const normalizeBranch = (value) => String(value || '').trim().toLowerCase();
 
 const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
 
-const isSchemaLookupError = (error) => {
-    const message = String(error?.message || '').toLowerCase();
-    return (
-        message.includes('does not exist') ||
-        message.includes('column') ||
-        message.includes('relation') ||
-        message.includes('schema cache')
-    );
-};
+const isMissingEmailColumnError = (error) => String(error?.message || '').toLowerCase().includes('column employees.email does not exist');
 
-const isLookupTypeMismatchError = (error) => {
-    const message = String(error?.message || '').toLowerCase();
-    return message.includes('invalid input syntax for type');
-};
-
-const HR_TABLE_CANDIDATES = ['HR', 'hr'];
-const HR_LOOKUP_VARIANTS = [
-    { idField: 'employee_id', select: 'employee_id, first_name, last_name, role, password, email', hasEmail: true },
-    { idField: 'hr_id', select: 'hr_id, first_name, last_name, role, password, email', hasEmail: true },
-    { idField: 'id', select: 'id, first_name, last_name, role, password, email', hasEmail: true },
-    { idField: 'employee_id', select: 'employee_id, first_name, last_name, role, password', hasEmail: false },
-    { idField: 'hr_id', select: 'hr_id, first_name, last_name, role, password', hasEmail: false },
-    { idField: 'id', select: 'id, first_name, last_name, role, password', hasEmail: false }
-];
-
-const getHrIdentifier = (row) => (
-    String(row?.employee_id || row?.hr_id || row?.id || '').trim()
+const employeeSelectColumns = () => (
+    employeeEmailColumnAvailable === false
+        ? 'employee_id, first_name, last_name, role, password'
+        : 'employee_id, first_name, last_name, role, password, email'
 );
 
 const buildEmployeeLookupQuery = async (employeeId) => {
     const cleanId = String(employeeId || '').trim();
-    if (!cleanId) return { data: null, error: null };
 
-    let lastNonSchemaError = null;
+    const byEmployeeId = await supabase
+        .from('employees')
+        .select(employeeSelectColumns())
+        .eq('employee_id', cleanId)
+        .maybeSingle();
 
-    for (const tableName of HR_TABLE_CANDIDATES) {
-        for (const variant of HR_LOOKUP_VARIANTS) {
-            const lookup = await supabase
-                .from(tableName)
-                .select(variant.select)
-                .eq(variant.idField, cleanId)
-                .maybeSingle();
-
-            if (lookup.error) {
-                if (isSchemaLookupError(lookup.error) || isLookupTypeMismatchError(lookup.error)) {
-                    continue;
-                }
-                lastNonSchemaError = lookup.error;
-                continue;
-            }
-
-            if (lookup.data) {
-                hrEmailColumnAvailable = variant.hasEmail;
-                return {
-                    data: {
-                        ...lookup.data,
-                        __meta: {
-                            tableName,
-                            idField: variant.idField
-                        }
-                    },
-                    error: null
-                };
-            }
+    if (byEmployeeId.error) {
+        if (isMissingEmailColumnError(byEmployeeId.error)) {
+            employeeEmailColumnAvailable = false;
+            return buildEmployeeLookupQuery(cleanId);
         }
+        return byEmployeeId;
     }
 
-    if (lastNonSchemaError) {
-        return { data: null, error: lastNonSchemaError };
+    if (byEmployeeId.data) {
+        if (employeeEmailColumnAvailable === null && Object.prototype.hasOwnProperty.call(byEmployeeId.data, 'email')) {
+            employeeEmailColumnAvailable = true;
+        }
+        return byEmployeeId;
     }
 
     return { data: null, error: null };
@@ -588,14 +335,6 @@ const toPublicResetError = (error) => {
 
     if (normalized.includes('missing credentials')) {
         return 'Email sender credentials are missing. Set EMAIL_USER and EMAIL_PASS in Back-end/.env.';
-    }
-
-    if (normalized.includes('connection timeout') || normalized.includes('timeout')) {
-        return 'Email connection timed out from server. Configure RESEND_API_KEY and RESEND_FROM_EMAIL to use HTTP email delivery.';
-    }
-
-    if (isResendRecipientRestrictionError(error)) {
-        return 'Resend sandbox is restricting recipient emails. Verify a domain in Resend and use RESEND_FROM_EMAIL from that domain, or configure SMTP fallback (EMAIL_USER/EMAIL_PASS).';
     }
 
     return message;
@@ -641,57 +380,17 @@ exports.testDb = async (req, res) => {
 };
 
 exports.getJobs = async (req, res) => {
-    try {
-        const branchQuery = normalizeText(req.query?.branch);
-        const activeOnly = String(req.query?.activeOnly || '').trim().toLowerCase() === 'true';
-        const cacheKey = makeCacheKey('jobs', { branchQuery, activeOnly });
-        const cached = getCachedResponse(cacheKey);
-        if (cached) {
-            return res.json(cached);
-        }
-
-        const { data: jobs, error } = await supabase
-            .from('jobpostings')
-            .select('*')
-            .order('date_posted', { ascending: false });
-        if (error) throw error;
-
-        const filtered = (jobs || []).filter((job) => {
-            if (activeOnly && !isJobActive(job.job_status)) return false;
-            if (!branchQuery) return true;
-
-            const branchText = normalizeText(job?.branch);
-            const locationText = normalizeText(job?.location);
-            return branchText.includes(branchQuery) || locationText.includes(branchQuery);
-        });
-
-        const payload = filtered.map((job) => enrichJobPosting(job));
-        setCachedResponse(cacheKey, payload);
-        res.json(payload);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+    try { res.json((await buildJobPostingsSnapshot()).jobs); } 
+    catch (err) { res.status(500).json({ error: err.message }); }
 };
 
 exports.getJobPostingsDashboard = async (req, res) => {
-    try {
-        const cacheKey = makeCacheKey('dashboard', {});
-        const cached = getCachedResponse(cacheKey);
-        if (cached) return res.json(cached);
-
-        const payload = await buildJobPostingsSnapshot();
-        setCachedResponse(cacheKey, payload);
-        res.json(payload);
-    } 
+    try { res.json(await buildJobPostingsSnapshot()); } 
     catch (err) { res.status(500).json({ error: err.message }); }
 };
 
 exports.getUpcomingInterviews = async (req, res) => {
     try {
-        const cacheKey = makeCacheKey('upcomingInterviews', {});
-        const cached = getCachedResponse(cacheKey);
-        if (cached) return res.json(cached);
-
         const { data, error } = await supabase
             .from('applicantfacttable')
             .select('schedule:schedule_id(interview_schedule), status!inner(interview)')
@@ -711,126 +410,10 @@ exports.getUpcomingInterviews = async (req, res) => {
         const schedule = dates.map((date) => ({ date, count: grouped[date] }));
         const totalScheduled = schedule.reduce((sum, item) => sum + item.count, 0);
 
-        const payload = { totalScheduled, schedule };
-        setCachedResponse(cacheKey, payload);
-        res.json(payload);
+        res.json({ totalScheduled, schedule });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
-};
-
-exports.getInterviewQueue = async (req, res) => {
-    try {
-        const { data: pendingData, error: pendingError } = await supabase
-            .from('applicantfacttable')
-            .select('*, applicant:applicant_no(*), status!inner(interview)')
-            .eq('status.interview', 1)
-            .is('schedule_id', null);
-        if (pendingError) throw pendingError;
-
-        const { data: interviewData, error: interviewError } = await supabase
-            .from('applicantfacttable')
-            .select('*, applicant:applicant_no(*), schedule:schedule_id(*), status!inner(interview)')
-            .eq('status.interview', 1)
-            .not('schedule_id', 'is', null);
-        if (interviewError) throw interviewError;
-
-        res.json({
-            pendingApplicants: pendingData || [],
-            scheduledApplicants: interviewData || []
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message || 'Unable to load interview queue.' });
-    }
-};
-
-exports.saveInterviewSchedules = async (req, res) => {
-    const schedules = Array.isArray(req.body?.schedules) ? req.body.schedules : [];
-    const roomValue = String(req.body?.room || '').trim();
-    const remindersValue = String(req.body?.reminders || '').trim();
-    const locationValue = String(req.body?.location || '').trim();
-
-    if (schedules.length === 0) {
-        return res.status(400).json({ error: 'schedules payload is required.' });
-    }
-    if (!roomValue) {
-        return res.status(400).json({ error: 'room is required.' });
-    }
-
-    const failedApplicants = [];
-    let successCount = 0;
-
-    for (const item of schedules) {
-        const applicantNo = String(item?.applicant_no || '').trim();
-        const assignedDate = String(item?.assignedDate || '').trim();
-        const timeSlot = String(item?.timeSlot || '').trim();
-
-        if (!applicantNo || !assignedDate || !timeSlot) {
-            failedApplicants.push({
-                applicant_no: applicantNo || 'unknown',
-                error: 'Missing required schedule fields.'
-            });
-            continue;
-        }
-
-        const schedulePayload = {
-            interview_schedule: assignedDate,
-            interview_time: timeSlot,
-            room_number: roomValue,
-            reminders: remindersValue
-        };
-        if (locationValue) {
-            schedulePayload.location = locationValue;
-        }
-
-        let { data: schedData, error: schedError } = await supabase
-            .from('schedule')
-            .insert([schedulePayload])
-            .select();
-
-        if (schedError && /column .*location/i.test(String(schedError.message || ''))) {
-            ({ data: schedData, error: schedError } = await supabase
-                .from('schedule')
-                .insert([{
-                    interview_schedule: assignedDate,
-                    interview_time: timeSlot,
-                    room_number: roomValue,
-                    reminders: remindersValue
-                }])
-                .select());
-        }
-
-        if (schedError) {
-            failedApplicants.push({ applicant_no: applicantNo, error: schedError.message });
-            continue;
-        }
-
-        const newScheduleId = schedData?.[0]?.schedule_id || schedData?.[0]?.id;
-        if (!newScheduleId) {
-            failedApplicants.push({ applicant_no: applicantNo, error: 'Schedule ID not returned after insert.' });
-            continue;
-        }
-
-        const { error: updateError } = await supabase
-            .from('applicantfacttable')
-            .update({ schedule_id: newScheduleId })
-            .eq('applicant_no', applicantNo);
-
-        if (updateError) {
-            failedApplicants.push({ applicant_no: applicantNo, error: updateError.message });
-            continue;
-        }
-
-        successCount += 1;
-    }
-
-    const hasFailures = failedApplicants.length > 0;
-    res.status(hasFailures ? 207 : 200).json({
-        message: hasFailures ? 'Scheduling completed with partial failures.' : 'Scheduling completed.',
-        successCount,
-        failureCount: failedApplicants.length,
-        failedApplicants
-    });
 };
 
 exports.recordJobView = async (req, res) => {
@@ -849,7 +432,6 @@ exports.recordJobView = async (req, res) => {
             }
         ]);
         if (error) throw error;
-        invalidateCacheByScopes(['dashboard']);
         res.status(201).json({ message: 'View recorded' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
@@ -871,7 +453,6 @@ exports.recordSiteView = async (req, res) => {
         ]);
 
         if (error) throw error;
-        invalidateCacheByScopes(['dashboard']);
         res.status(201).json({ message: 'Site view recorded' });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -879,9 +460,8 @@ exports.recordSiteView = async (req, res) => {
 };
 
 exports.createJobPosting = async (req, res) => {
-    const { job_title, department, contract_type, branch, description, summary, responsibilities, qualifications, benefits } = req.body || {};
+    const { job_title, department, contract_type, branch, description, responsibilities, qualifications, benefits } = req.body || {};
     const normalizedDescription = String(description || '').trim();
-    const normalizedSummary = String(summary || '').trim() || normalizedDescription || null;
     try {
         const { data, error } = await supabase.from('jobpostings').insert([{
             job_title,
@@ -889,7 +469,6 @@ exports.createJobPosting = async (req, res) => {
             contract_type,
             branch,
             description: normalizedDescription || null,
-            summary: normalizedSummary,
             responsibilities: Array.isArray(responsibilities) ? responsibilities : [],
             qualifications: Array.isArray(qualifications) ? qualifications : [],
             benefits: Array.isArray(benefits) ? benefits : [],
@@ -898,7 +477,6 @@ exports.createJobPosting = async (req, res) => {
             total_applicants: 0
         }]).select().single();
         if (error) throw error;
-        invalidateCacheByScopes(['jobs', 'dashboard', 'reports']);
         res.status(201).json({ message: 'Created successfully', job: data });
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
@@ -906,22 +484,15 @@ exports.createJobPosting = async (req, res) => {
 exports.updateJobPosting = async (req, res) => {
     try {
         const payload = { ...(req.body || {}) };
+        // Ignore legacy clients still sending `summary` after the column is removed.
+        delete payload.summary;
         if (Object.prototype.hasOwnProperty.call(payload, 'description')) {
             const normalizedDescription = String(payload.description || '').trim();
             payload.description = normalizedDescription || null;
-            if (!Object.prototype.hasOwnProperty.call(payload, 'summary')) {
-                payload.summary = normalizedDescription || null;
-            }
-        }
-
-        if (Object.prototype.hasOwnProperty.call(payload, 'summary')) {
-            const normalizedSummary = String(payload.summary || '').trim();
-            payload.summary = normalizedSummary || null;
         }
 
         const { data, error } = await supabase.from('jobpostings').update(payload).eq('job_id', req.params.id).select().single();
         if (error) throw error;
-        invalidateCacheByScopes(['jobs', 'dashboard', 'reports']);
         res.json({ message: 'Updated successfully', job: data });
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
@@ -930,7 +501,6 @@ exports.updateJobStatus = async (req, res) => {
     try {
         const { data, error } = await supabase.from('jobpostings').update({ job_status: Boolean(req.body.job_status) }).eq('job_id', req.params.id).select().single();
         if (error) throw error;
-        invalidateCacheByScopes(['jobs', 'dashboard', 'reports']);
         res.json({ message: 'Status updated', job: data });
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
@@ -939,7 +509,6 @@ exports.deleteJobPosting = async (req, res) => {
     try {
         const { error } = await supabase.from('jobpostings').delete().eq('job_id', req.params.id);
         if (error) throw error;
-        invalidateCacheByScopes(['jobs', 'dashboard', 'reports']);
         res.json({ message: 'Deleted successfully' });
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
@@ -956,32 +525,25 @@ exports.submitApplication = async (req, res) => {
     } = req.body;
 
     try {
-        const normalizedFirstName = String(firstName || '').trim();
-        const normalizedLastName = String(lastName || '').trim();
-        if (!normalizedFirstName || !normalizedLastName) {
-            return res.status(400).json({ error: 'First name and last name are required.' });
-        }
-
-        const normalizedEmail = normalizeEmail(email);
-
         // <-- Updated to use the secure password generator -->
         const tempPassword = generateSecurePassword(10); 
-        const fullName = `${normalizedFirstName} ${normalizedLastName}`.trim();
+        const fullName = `${firstName} ${lastName}`.trim();
 
-        const [resumeUrl, coverLetterUrl, prcIdUrl] = await Promise.all([
-            uploadFileToSupabase(files['resume']),
-            uploadFileToSupabase(files['coverLetter']),
-            uploadFileToSupabase(files['prcId'])
-        ]);
+        const resumeUrl = await uploadFileToSupabase(files['resume']);
+        const coverLetterUrl = await uploadFileToSupabase(files['coverLetter']);
+        const prcIdUrl = await uploadFileToSupabase(files['prcId']);
 
         const cleanAge = parseInt(age) || 0; 
         const cleanContact = contactNumber ? contactNumber.replace(/\D/g, '') : null;
+        const cleanMiddleInitial = middleInitial
+            ? middleInitial.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 2)
+            : null;
 
         // A. Save Applicant Data
         const { data: createdApplicant, error: appError } = await supabase.from('applicant').insert([{ 
-            password: tempPassword, first_name: normalizedFirstName, last_name: normalizedLastName,
-            middle_initial: middleInitial ? middleInitial.substring(0, 5) : null, suffix: suffix ? suffix.substring(0, 10) : null,
-            nationality, birthday, age: cleanAge, email: normalizedEmail, contact_number: cleanContact,
+            password: tempPassword, first_name: firstName, last_name: lastName,
+            middle_initial: cleanMiddleInitial, suffix: suffix ? suffix.substring(0, 10) : null,
+            nationality, birthday, age: cleanAge, email, contact_number: cleanContact,
             region, province, city_municipality: city, barangay, detailed_address: detailedAddress,
             resume_url: resumeUrl, cover_letter_url: coverLetterUrl, prc_id_url: prcIdUrl,
             medical_condition: medicalCondition || 'no', medical_details: medicalDetails || null,
@@ -992,17 +554,12 @@ exports.submitApplication = async (req, res) => {
         if (!applicantNo) throw new Error('Failed to generate applicant number.');
 
         // B. Save Status
-        const statusPromise = supabase.from('status').insert([{ 
+        const { data: newStatus, error: statusError } = await supabase.from('status').insert([{ 
             applied: 1, interview: 0, hired: 0, rejected: 0, applicant_no: applicantNo, applicant_name: fullName 
         }]).select().single();
-        const resolvedJobIdPromise = resolveJobPostingId({ jobId, positionApplied, branch });
-
-        const [{ data: newStatus, error: statusError }, resolvedJobId] = await Promise.all([
-            statusPromise,
-            resolvedJobIdPromise
-        ]);
 
         if (!statusError && newStatus) {
+            const resolvedJobId = await resolveJobPostingId({ jobId, positionApplied, branch });
             const factPayload = { applicant_no: applicantNo, status_id: newStatus.status_id };
             if (resolvedJobId) {
                 factPayload.job_id = resolvedJobId;
@@ -1011,17 +568,15 @@ exports.submitApplication = async (req, res) => {
         }
 
         // C. Send the Automated Email
-        let emailSent = false;
-        let emailWarning = null;
-
-        if (normalizedEmail) { 
+        if (email) { 
             try {
-                await sendEmailMessage({
-                    to: normalizedEmail,
+                const mailOptions = {
+                    from: `"6R Diamond Recruitment" <${process.env.EMAIL_USER}>`, 
+                    to: email, 
                     subject: 'Application Received - Login Credentials',
                     html: `
                         <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: auto;">
-                            <h2 style="color: #4A90E2;">Hello ${normalizedFirstName},</h2>
+                            <h2 style="color: #4A90E2;">Hello ${firstName},</h2>
                             <p>Thank you for submitting your application to <strong>6R Diamond International Cargo Logistics, Inc.</strong></p>
                             <p>We have successfully received your documents. You can track the status of your application through our portal using the credentials below:</p>
                             
@@ -1035,27 +590,15 @@ exports.submitApplication = async (req, res) => {
                             <p>Best regards,<br/><strong>Human Resources Department</strong><br/>6R Diamond International</p>
                         </div>
                     `
-                });
-                emailSent = true;
-                console.log(`Successfully sent credentials to applicant at: ${normalizedEmail}`);
+                };
+                await transporter.sendMail(mailOptions);
+                console.log(`Successfully sent credentials to applicant at: ${email}`);
             } catch (emailErr) {
-                if (isResendRecipientRestrictionError(emailErr)) {
-                    emailWarning = 'Email delivery blocked by Resend testing mode. Verify a domain in Resend or configure SMTP fallback (EMAIL_USER/EMAIL_PASS).';
-                } else {
-                    emailWarning = String(emailErr?.message || 'Unable to send credentials email.');
-                }
-                console.error('Warning: Failed to send email to applicant:', emailErr);
+                console.error("Warning: Failed to send email to applicant. Error: ", emailErr.message);
             }
         }
 
-        invalidateCacheByScopes(['jobs', 'dashboard', 'reports', 'applicants', 'upcomingInterviews']);
-
-        res.status(201).json({
-            message: 'Application submitted!',
-            applicantId: applicantNo,
-            emailSent,
-            emailWarning
-        });
+        res.status(201).json({ message: "Application submitted!", applicantId: applicantNo });
     } catch (err) {
         console.error("Server Error:", err.message);
         res.status(500).json({ error: err.message });
@@ -1064,13 +607,9 @@ exports.submitApplication = async (req, res) => {
 
 exports.getApplicants = async (req, res) => {
     try {
-        const cacheKey = makeCacheKey('applicants', {});
-        const cached = getCachedResponse(cacheKey);
-        if (cached) return res.json(cached);
-
         const { data, error } = await supabase.from('applicant').select(`*, applicantfacttable (applied_date, status (applied, interview, hired, rejected))`).order('applicant_no', { ascending: false });
         if (error) throw error;
-        const payload = data.map(app => ({
+        res.json(data.map(app => ({
             appliedAt: app.created_at || app.createdAt || inferAppliedAtFromApplicant(app),
             created_at: app.created_at || null,
             application_date: app.created_at || app.createdAt || inferAppliedAtFromApplicant(app),
@@ -1081,10 +620,7 @@ exports.getApplicants = async (req, res) => {
             detailedAddress: app.detailed_address, resume_url: app.resume_url, cover_letter_url: app.cover_letter_url,
             medicalCondition: app.medical_condition, medicalDetails: app.medical_details,
             status: extractApplicantStatus(app), branch: app.branch || 'Not assigned', position: app.position_applied || 'Not assigned'
-        }));
-
-        setCachedResponse(cacheKey, payload);
-        res.json(payload);
+        })));
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
@@ -1093,15 +629,6 @@ exports.getReports = async (req, res) => {
         const period = getPeriodConfig(req.query || {});
         const selectedBranch = normalizeBranch(req.query?.branch);
         const hasBranchFilter = selectedBranch && selectedBranch !== 'all';
-        const cacheKey = makeCacheKey('reports', {
-            reportType: period.reportType,
-            startDate: period.startDate,
-            endDate: period.endDate,
-            selectedBranch: hasBranchFilter ? selectedBranch : 'all'
-        });
-        const cached = getCachedResponse(cacheKey);
-        if (cached) return res.json(cached);
-
         const { data, error } = await supabase.from('applicant').select(`*, applicantfacttable (applied_date, status (applied, interview, hired, rejected))`);
         if (error) throw error;
 
@@ -1123,14 +650,11 @@ exports.getReports = async (req, res) => {
         const total = records.length;
         const statusBreakdown = records.reduce((acc, item) => { acc[item.status] = (acc[item.status] || 0) + 1; return acc; }, { Applied: 0, Interview: 0, Hired: 0, Rejected: 0 });
 
-        const payload = {
+        res.json({
             meta: { reportType: period.reportType, label: period.label, dateRange: { from: period.startDate, to: period.endDate }, filter: { ...period.filter, branch: hasBranchFilter ? selectedBranch : 'all' } },
             summary: { totalApplications: total, newApplications: statusBreakdown.Applied, interviewCount: statusBreakdown.Interview, hiredCount: statusBreakdown.Hired, rejectedCount: statusBreakdown.Rejected, interviewRate: percentage(statusBreakdown.Interview, total), hiringRate: percentage(statusBreakdown.Hired, total), rejectionRate: percentage(statusBreakdown.Rejected, total) },
             statusBreakdown, records
-        };
-
-        setCachedResponse(cacheKey, payload);
-        res.json(payload);
+        });
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
@@ -1200,7 +724,6 @@ exports.updateApplicantStatus = async (req, res) => {
             const { data: statusInsert } = await supabase.from('status').insert([newStatusObj]).select().single();
             await supabase.from('applicantfacttable').insert([{ applicant_no: id, status_id: statusInsert.status_id }]);
         }
-        invalidateCacheByScopes(['jobs', 'dashboard', 'reports', 'applicants', 'upcomingInterviews']);
         res.json({ message: `Status updated to ${status}` });
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
@@ -1221,7 +744,7 @@ exports.loginEmployee = async (req, res) => {
         res.json({
             message: 'Login successful',
             user: {
-                id: getHrIdentifier(data),
+                id: data.employee_id,
                 name: `${data.first_name || ''} ${data.last_name || ''}`.trim(),
                 role: data.role || 'HR',
                 email: data.email || ''
@@ -1243,7 +766,7 @@ exports.getEmployeeProfile = async (req, res) => {
 
         res.json({
             user: {
-                id: getHrIdentifier(data),
+                id: data.employee_id,
                 name: `${data.first_name || ''} ${data.last_name || ''}`.trim(),
                 role: data.role || 'HR',
                 email: data.email || ''
@@ -1267,8 +790,8 @@ exports.requestPasswordReset = async (req, res) => {
         if (error) throw error;
         if (!data) return res.status(404).json({ error: 'Account not found.' });
 
-        if (hrEmailColumnAvailable === false) {
-            return res.status(500).json({ error: 'Reset requires HR.email column. Add and populate registered HR emails in Supabase.' });
+        if (employeeEmailColumnAvailable === false) {
+            return res.status(500).json({ error: 'Reset requires employees.email column. Add and populate registered HR emails in Supabase.' });
         }
 
         const accountEmail = normalizeEmail(data.email);
@@ -1281,14 +804,14 @@ exports.requestPasswordReset = async (req, res) => {
         }
 
         const code = createResetCode();
-        const accountId = getHrIdentifier(data);
-        passwordResetStore.set(accountId, {
+        passwordResetStore.set(String(data.employee_id), {
             code,
             expiresAt: Date.now() + PASSWORD_RESET_EXPIRY_MS,
             email: accountEmail
         });
 
-        await sendEmailMessage({
+        await transporter.sendMail({
+            from: `"6R Diamond Recruitment" <${process.env.EMAIL_USER}>`,
             to: accountEmail,
             subject: 'Password Reset Verification Code',
             html: `<p>Hello ${data.first_name || 'HR User'},</p><p>Your password reset code is <strong>${code}</strong>.</p><p>This code will expire in 15 minutes.</p>`
@@ -1319,24 +842,21 @@ exports.confirmPasswordReset = async (req, res) => {
         if (error) throw error;
         if (!data) return res.status(404).json({ error: 'Account not found.' });
 
-        const accountId = getHrIdentifier(data);
-        const resetSession = passwordResetStore.get(accountId);
+        const resetSession = passwordResetStore.get(String(data.employee_id));
         if (!resetSession) return res.status(400).json({ error: 'No reset request found. Request a new code.' });
         if (Date.now() > resetSession.expiresAt) {
-            passwordResetStore.delete(accountId);
+            passwordResetStore.delete(String(data.employee_id));
             return res.status(400).json({ error: 'Verification code has expired. Request a new code.' });
         }
         if (resetSession.code !== code) return res.status(401).json({ error: 'Invalid verification code.' });
 
-        const tableName = data?.__meta?.tableName || 'HR';
-        const idField = data?.__meta?.idField || 'hr_id';
         const { error: updateError } = await supabase
-            .from(tableName)
+            .from('employees')
             .update({ password: newPassword })
-            .eq(idField, accountId);
+            .eq('employee_id', data.employee_id);
         if (updateError) throw updateError;
 
-        passwordResetStore.delete(accountId);
+        passwordResetStore.delete(String(data.employee_id));
         res.json({ message: 'Password updated successfully. You can now login.' });
     } catch (err) {
         console.error('Password reset confirmation failed:', err.message);

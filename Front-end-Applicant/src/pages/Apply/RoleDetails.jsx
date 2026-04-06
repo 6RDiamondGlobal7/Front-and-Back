@@ -63,21 +63,16 @@ const RoleDetails = () => {
           return;
         }
 
-        const response = await axios.get(`${API_BASE_URL}/api/jobs`, {
-          params: {
-            branch,
-            activeOnly: true
-          }
-        });
+        const response = await axios.get(`${API_BASE_URL}/api/jobs`);
         const jobs = Array.isArray(response.data) ? response.data : [];
         const branchKey = String(branch).toLowerCase();
         const match = jobs.find((job) => (
           normalizeTitle(job?.job_title) === normalizeTitle(roleTitle) &&
           String(job?.branch || '').trim().toLowerCase() === branchKey &&
-          (String(job?.summary || '').trim() || String(job?.description || '').trim() || normalizeList(job?.responsibilities).length > 0 || normalizeList(job?.qualifications).length > 0 || normalizeList(job?.benefits).length > 0)
+          (String(job?.description || '').trim() || normalizeList(job?.responsibilities).length > 0 || normalizeList(job?.qualifications).length > 0 || normalizeList(job?.benefits).length > 0)
         ));
 
-        setLiveDescription(String(match?.summary || match?.description || '').trim());
+        setLiveDescription(String(match?.description || '').trim());
         setLiveSections({
           responsibilities: normalizeList(match?.responsibilities),
           qualifications: normalizeList(match?.qualifications),

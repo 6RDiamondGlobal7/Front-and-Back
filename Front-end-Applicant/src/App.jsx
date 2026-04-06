@@ -20,6 +20,7 @@ function App() {
         <Routes>
           {/* Landing & Branch */}
           <Route path="/" element={<Central />} />
+          <Route path="/about" element={<Central initialSection="about" />} />
           <Route path="/apply" element={<ApplyLanding />} />
           <Route path="/apply/branch" element={<SelectBranch />} />
           
