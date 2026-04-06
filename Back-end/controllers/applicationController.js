@@ -107,19 +107,56 @@ const sendViaResend = async ({ to, subject, html }) => {
     }
 };
 
+const isResendRecipientRestrictionError = (error) => {
+    const message = String(error?.message || '').toLowerCase();
+    return (
+        message.includes('resend error 403') &&
+        message.includes('you can only send testing emails to your own email address')
+    );
+};
+
 const sendEmailMessage = async ({ to, subject, html }) => {
-    if (resendApiKey && resendFromEmail) {
-        await sendViaResend({ to, subject, html });
+    const canUseResend = Boolean(resendApiKey && resendFromEmail);
+    const canUseSmtp = Boolean(emailUser && emailPass);
+
+    if (canUseResend) {
+        try {
+            await sendViaResend({ to, subject, html });
+            return;
+        } catch (resendErr) {
+            if (canUseSmtp) {
+                try {
+                    const activeTransporter = await ensureEmailTransport();
+                    await activeTransporter.sendMail({
+                        from: `"6R Diamond Recruitment" <${emailUser}>`,
+                        to,
+                        subject,
+                        html
+                    });
+                    console.warn(`Resend failed; SMTP fallback succeeded for recipient ${to}. Reason: ${resendErr.message}`);
+                    return;
+                } catch (smtpErr) {
+                    throw new Error(`Resend failed (${resendErr.message}); SMTP fallback failed (${smtpErr.message})`);
+                }
+            }
+            throw resendErr;
+        }
+    }
+
+    if (canUseSmtp) {
+        const activeTransporter = await ensureEmailTransport();
+        await activeTransporter.sendMail({
+            from: `"6R Diamond Recruitment" <${emailUser}>`,
+            to,
+            subject,
+            html
+        });
         return;
     }
 
-    const activeTransporter = await ensureEmailTransport();
-    await activeTransporter.sendMail({
-        from: `"6R Diamond Recruitment" <${emailUser}>`,
-        to,
-        subject,
-        html
-    });
+    throw new Error(
+        'No email provider is configured. Set RESEND_API_KEY + RESEND_FROM_EMAIL or EMAIL_USER + EMAIL_PASS.'
+    );
 };
 
 const passwordResetStore = new Map();
@@ -555,6 +592,10 @@ const toPublicResetError = (error) => {
 
     if (normalized.includes('connection timeout') || normalized.includes('timeout')) {
         return 'Email connection timed out from server. Configure RESEND_API_KEY and RESEND_FROM_EMAIL to use HTTP email delivery.';
+    }
+
+    if (isResendRecipientRestrictionError(error)) {
+        return 'Resend sandbox is restricting recipient emails. Verify a domain in Resend and use RESEND_FROM_EMAIL from that domain, or configure SMTP fallback (EMAIL_USER/EMAIL_PASS).';
     }
 
     return message;
@@ -998,7 +1039,11 @@ exports.submitApplication = async (req, res) => {
                 emailSent = true;
                 console.log(`Successfully sent credentials to applicant at: ${normalizedEmail}`);
             } catch (emailErr) {
-                emailWarning = String(emailErr?.message || 'Unable to send credentials email.');
+                if (isResendRecipientRestrictionError(emailErr)) {
+                    emailWarning = 'Email delivery blocked by Resend testing mode. Verify a domain in Resend or configure SMTP fallback (EMAIL_USER/EMAIL_PASS).';
+                } else {
+                    emailWarning = String(emailErr?.message || 'Unable to send credentials email.');
+                }
                 console.error('Warning: Failed to send email to applicant:', emailErr);
             }
         }
