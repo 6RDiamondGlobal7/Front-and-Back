@@ -71,8 +71,8 @@ router.post('/apply', uploadFields, applicationController.submitApplication);
 // POST /api/login
 router.post('/login', upload.none(), applicationController.loginEmployee);
 
-// GET /api/employees/:employeeId/profile
-router.get('/employees/:employeeId/profile', applicationController.getEmployeeProfile);
+// GET /api/hr/:employeeId/profile
+router.get('/hr/:employeeId/profile', applicationController.getEmployeeProfile);
 
 // POST /api/forgot-password/request
 router.post('/forgot-password/request', upload.none(), applicationController.requestPasswordReset);

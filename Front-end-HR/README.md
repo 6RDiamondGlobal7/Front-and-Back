@@ -16,6 +16,7 @@ VITE_API_BASE_URL=https://api.yourdomain.com
 ```
 
 You can place this in `.env.production` or export it in your shell.
+Use `.env.production.example` as a starter file.
 
 Then build:
 ```bash

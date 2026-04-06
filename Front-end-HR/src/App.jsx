@@ -45,7 +45,7 @@ function App() {
       if (!employeeId) return;
 
       try {
-        const response = await fetch(`${API_BASE_URL}/api/employees/${encodeURIComponent(employeeId)}/profile`);
+        const response = await fetch(`${API_BASE_URL}/api/hr/${encodeURIComponent(employeeId)}/profile`);
         if (!response.ok) return;
         const data = await response.json();
         const user = data?.user && typeof data.user === 'object' ? data.user : null;

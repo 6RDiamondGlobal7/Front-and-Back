@@ -67,7 +67,6 @@ function removeDirSafe(target, options = {}) {
     log('WARNING', `Could not remove ${target} yet. Retry ${i}/5...`);
   }
 
-  // Last fallback for locked folders: try to rename and continue.
   const stalePath = `${target}.stale-${Date.now()}`;
   try {
     fs.renameSync(target, stalePath);
@@ -181,6 +180,7 @@ function removeLegacyArtifacts(hrDir) {
   const applicantDir = findDirByPredicate(path.join(ROOT_DIR, 'Front-end-Applicant'), (pkg, _, name) => {
     return pkg?.name === 'application-portal' || /applicant/i.test(name);
   });
+
   if (!exists(path.join(hrDir, 'package.json'))) fail('Front-end-HR folder not found.');
   if (!exists(path.join(applicantDir, 'package.json'))) fail('Front-end-Applicant folder not found.');
 
