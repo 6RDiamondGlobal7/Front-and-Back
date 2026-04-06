@@ -27,6 +27,12 @@ router.get('/job-postings/dashboard', applicationController.getJobPostingsDashbo
 // GET /api/interviews/upcoming
 router.get('/interviews/upcoming', applicationController.getUpcomingInterviews);
 
+// GET /api/interviews/queue
+router.get('/interviews/queue', applicationController.getInterviewQueue);
+
+// POST /api/interviews/schedule
+router.post('/interviews/schedule', upload.none(), applicationController.saveInterviewSchedules);
+
 // POST /api/job-views
 router.post('/job-views', applicationController.recordJobView);
 

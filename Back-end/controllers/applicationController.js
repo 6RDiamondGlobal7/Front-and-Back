@@ -639,6 +639,120 @@ exports.getUpcomingInterviews = async (req, res) => {
     }
 };
 
+exports.getInterviewQueue = async (req, res) => {
+    try {
+        const { data: pendingData, error: pendingError } = await supabase
+            .from('applicantfacttable')
+            .select('*, applicant:applicant_no(*), status!inner(interview)')
+            .eq('status.interview', 1)
+            .is('schedule_id', null);
+        if (pendingError) throw pendingError;
+
+        const { data: interviewData, error: interviewError } = await supabase
+            .from('applicantfacttable')
+            .select('*, applicant:applicant_no(*), schedule:schedule_id(*), status!inner(interview)')
+            .eq('status.interview', 1)
+            .not('schedule_id', 'is', null);
+        if (interviewError) throw interviewError;
+
+        res.json({
+            pendingApplicants: pendingData || [],
+            scheduledApplicants: interviewData || []
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message || 'Unable to load interview queue.' });
+    }
+};
+
+exports.saveInterviewSchedules = async (req, res) => {
+    const schedules = Array.isArray(req.body?.schedules) ? req.body.schedules : [];
+    const roomValue = String(req.body?.room || '').trim();
+    const remindersValue = String(req.body?.reminders || '').trim();
+    const locationValue = String(req.body?.location || '').trim();
+
+    if (schedules.length === 0) {
+        return res.status(400).json({ error: 'schedules payload is required.' });
+    }
+    if (!roomValue) {
+        return res.status(400).json({ error: 'room is required.' });
+    }
+
+    const failedApplicants = [];
+    let successCount = 0;
+
+    for (const item of schedules) {
+        const applicantNo = String(item?.applicant_no || '').trim();
+        const assignedDate = String(item?.assignedDate || '').trim();
+        const timeSlot = String(item?.timeSlot || '').trim();
+
+        if (!applicantNo || !assignedDate || !timeSlot) {
+            failedApplicants.push({
+                applicant_no: applicantNo || 'unknown',
+                error: 'Missing required schedule fields.'
+            });
+            continue;
+        }
+
+        const schedulePayload = {
+            interview_schedule: assignedDate,
+            interview_time: timeSlot,
+            room_number: roomValue,
+            reminders: remindersValue
+        };
+        if (locationValue) {
+            schedulePayload.location = locationValue;
+        }
+
+        let { data: schedData, error: schedError } = await supabase
+            .from('schedule')
+            .insert([schedulePayload])
+            .select();
+
+        if (schedError && /column .*location/i.test(String(schedError.message || ''))) {
+            ({ data: schedData, error: schedError } = await supabase
+                .from('schedule')
+                .insert([{
+                    interview_schedule: assignedDate,
+                    interview_time: timeSlot,
+                    room_number: roomValue,
+                    reminders: remindersValue
+                }])
+                .select());
+        }
+
+        if (schedError) {
+            failedApplicants.push({ applicant_no: applicantNo, error: schedError.message });
+            continue;
+        }
+
+        const newScheduleId = schedData?.[0]?.schedule_id || schedData?.[0]?.id;
+        if (!newScheduleId) {
+            failedApplicants.push({ applicant_no: applicantNo, error: 'Schedule ID not returned after insert.' });
+            continue;
+        }
+
+        const { error: updateError } = await supabase
+            .from('applicantfacttable')
+            .update({ schedule_id: newScheduleId })
+            .eq('applicant_no', applicantNo);
+
+        if (updateError) {
+            failedApplicants.push({ applicant_no: applicantNo, error: updateError.message });
+            continue;
+        }
+
+        successCount += 1;
+    }
+
+    const hasFailures = failedApplicants.length > 0;
+    res.status(hasFailures ? 207 : 200).json({
+        message: hasFailures ? 'Scheduling completed with partial failures.' : 'Scheduling completed.',
+        successCount,
+        failureCount: failedApplicants.length,
+        failedApplicants
+    });
+};
+
 exports.recordJobView = async (req, res) => {
     const { roleId, branch } = req.body || {};
     if (!roleId) return res.status(400).json({ error: 'roleId required' });
