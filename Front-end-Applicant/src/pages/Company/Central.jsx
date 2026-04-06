@@ -108,7 +108,7 @@ const Central = ({ initialSection = 'home', aboutOnly = false }) => {
                   our client to negotiate and customize our services in accordance to their desired 
                   outcome, while considering the optimal costs for both parties.
                 </p>
-                <button className="blue-discover-btn">Discover More</button>
+                <Link to="/services" className="blue-discover-btn">Discover More</Link>
               </div>
             </div>
 
@@ -118,7 +118,7 @@ const Central = ({ initialSection = 'home', aboutOnly = false }) => {
                 <div className="card-content">
                   <h3>Sea Freight Forwarding</h3>
                   <p>Being a Non-Vessel Operating Common Carrier (NVOCC), 6R Diamond aims to be globally recognized.</p>
-                  <button className="yellow-card-btn">Learn More</button>
+                  <Link to="/services" className="yellow-card-btn">Learn More</Link>
                 </div>
               </div>
 
@@ -127,7 +127,7 @@ const Central = ({ initialSection = 'home', aboutOnly = false }) => {
                 <div className="card-content">
                   <h3>Air Freight Forwarding</h3>
                   <p>6R Diamond upholds its commitment of providing fast, reliable and cost-efficient air freight.</p>
-                  <button className="yellow-card-btn">Learn More</button>
+                  <Link to="/services" className="yellow-card-btn">Learn More</Link>
                 </div>
               </div>
 
@@ -136,7 +136,7 @@ const Central = ({ initialSection = 'home', aboutOnly = false }) => {
                 <div className="card-content">
                   <h3>Customs Clearance and Brokerage</h3>
                   <p>With more than 40 years of experience in providing customs clearance and brokerage services.</p>
-                  <button className="yellow-card-btn">Learn More</button>
+                  <Link to="/services" className="yellow-card-btn">Learn More</Link>
                 </div>
               </div>
 
@@ -145,7 +145,7 @@ const Central = ({ initialSection = 'home', aboutOnly = false }) => {
                 <div className="card-content">
                   <h3>Inland Transportation</h3>
                   <p>6R Diamond offers a wide-range of inland transport services to its clients.</p>
-                  <button className="yellow-card-btn">Learn More</button>
+                  <Link to="/services" className="yellow-card-btn">Learn More</Link>
                 </div>
               </div>
             </div>
