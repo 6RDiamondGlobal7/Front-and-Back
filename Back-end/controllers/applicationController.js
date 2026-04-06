@@ -15,7 +15,7 @@ const transporter = nodemailer.createTransport({
 
 const passwordResetStore = new Map();
 const PASSWORD_RESET_EXPIRY_MS = 15 * 60 * 1000;
-let employeeEmailColumnAvailable = null;
+let hrEmailColumnAvailable = null;
 
 // ==========================================
 // --- Helper Functions ---
@@ -288,39 +288,99 @@ const normalizeBranch = (value) => String(value || '').trim().toLowerCase();
 
 const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
 
-const isMissingEmailColumnError = (error) => String(error?.message || '').toLowerCase().includes('column employees.email does not exist');
+const isMissingEmailColumnError = (error) => String(error?.message || '').toLowerCase().includes('column hr.email does not exist');
 
-const employeeSelectColumns = () => (
-    employeeEmailColumnAvailable === false
-        ? 'employee_id, first_name, last_name, role, password'
-        : 'employee_id, first_name, last_name, role, password, email'
+const HR_TABLE_CANDIDATES = ['hr', 'HR'];
+const HR_ID_COLUMN_CANDIDATES = ['employee_id', 'id'];
+const HR_BASE_SELECT = 'employee_id, id, first_name, last_name, role, password';
+
+const hrSelectColumns = () => (
+    hrEmailColumnAvailable === false ? HR_BASE_SELECT : `${HR_BASE_SELECT}, email`
 );
 
-const buildEmployeeLookupQuery = async (employeeId) => {
+const normalizeHrRecord = (row) => {
+    if (!row) return null;
+    return {
+        id: String(row.employee_id || row.id || '').trim(),
+        first_name: row.first_name || '',
+        last_name: row.last_name || '',
+        role: row.role || 'HR',
+        password: row.password || '',
+        email: row.email || ''
+    };
+};
+
+const buildHrLookupQuery = async (employeeId) => {
     const cleanId = String(employeeId || '').trim();
+    if (!cleanId) return { data: null, error: null };
 
-    const byEmployeeId = await supabase
-        .from('employees')
-        .select(employeeSelectColumns())
-        .eq('employee_id', cleanId)
-        .maybeSingle();
+    for (const tableName of HR_TABLE_CANDIDATES) {
+        for (const idColumn of HR_ID_COLUMN_CANDIDATES) {
+            if (idColumn === 'id' && !/^\d+$/.test(cleanId)) {
+                continue;
+            }
+            const lookup = await supabase
+                .from(tableName)
+                .select(hrSelectColumns())
+                .eq(idColumn, cleanId)
+                .maybeSingle();
 
-    if (byEmployeeId.error) {
-        if (isMissingEmailColumnError(byEmployeeId.error)) {
-            employeeEmailColumnAvailable = false;
-            return buildEmployeeLookupQuery(cleanId);
+            if (lookup.error) {
+                if (isMissingEmailColumnError(lookup.error)) {
+                    hrEmailColumnAvailable = false;
+                    return buildHrLookupQuery(cleanId);
+                }
+
+                const message = String(lookup.error.message || '').toLowerCase();
+                if (
+                    message.includes('column') && message.includes('does not exist')
+                    || message.includes('could not find the table')
+                ) {
+                    continue;
+                }
+                return lookup;
+            }
+
+            if (lookup.data) {
+                if (hrEmailColumnAvailable === null && Object.prototype.hasOwnProperty.call(lookup.data, 'email')) {
+                    hrEmailColumnAvailable = true;
+                }
+                return { data: normalizeHrRecord(lookup.data), error: null };
+            }
         }
-        return byEmployeeId;
-    }
-
-    if (byEmployeeId.data) {
-        if (employeeEmailColumnAvailable === null && Object.prototype.hasOwnProperty.call(byEmployeeId.data, 'email')) {
-            employeeEmailColumnAvailable = true;
-        }
-        return byEmployeeId;
     }
 
     return { data: null, error: null };
+};
+
+const updateHrPassword = async (accountId, newPassword) => {
+    const cleanId = String(accountId || '').trim();
+    if (!cleanId) return { error: new Error('Missing account identifier.') };
+
+    for (const tableName of HR_TABLE_CANDIDATES) {
+        for (const idColumn of HR_ID_COLUMN_CANDIDATES) {
+            if (idColumn === 'id' && !/^\d+$/.test(cleanId)) {
+                continue;
+            }
+            const { error } = await supabase
+                .from(tableName)
+                .update({ password: newPassword })
+                .eq(idColumn, cleanId);
+
+            if (!error) return { error: null };
+
+            const message = String(error.message || '').toLowerCase();
+            if (
+                message.includes('column') && message.includes('does not exist')
+                || message.includes('could not find the table')
+            ) {
+                continue;
+            }
+            return { error };
+        }
+    }
+
+    return { error: new Error('Unable to update HR password. Verify HR table and ID columns in Supabase.') };
 };
 
 const createResetCode = () => String(Math.floor(100000 + Math.random() * 900000));
@@ -897,14 +957,14 @@ exports.loginEmployee = async (req, res) => {
             return res.status(400).json({ error: 'Employee ID and password are required.' });
         }
 
-        const { data, error } = await buildEmployeeLookupQuery(employeeId);
+        const { data, error } = await buildHrLookupQuery(employeeId);
         if (error) throw error;
         if (!data || data.password !== password) return res.status(401).json({ error: 'Invalid Credentials' });
 
         res.json({
             message: 'Login successful',
             user: {
-                id: data.employee_id,
+                id: data.id,
                 name: `${data.first_name || ''} ${data.last_name || ''}`.trim(),
                 role: data.role || 'HR',
                 email: data.email || ''
@@ -920,20 +980,20 @@ exports.getEmployeeProfile = async (req, res) => {
             return res.status(400).json({ error: 'Employee ID is required.' });
         }
 
-        const { data, error } = await buildEmployeeLookupQuery(employeeId);
+        const { data, error } = await buildHrLookupQuery(employeeId);
         if (error) throw error;
-        if (!data) return res.status(404).json({ error: 'Employee not found.' });
+        if (!data) return res.status(404).json({ error: 'HR account not found.' });
 
         res.json({
             user: {
-                id: data.employee_id,
+                id: data.id,
                 name: `${data.first_name || ''} ${data.last_name || ''}`.trim(),
                 role: data.role || 'HR',
                 email: data.email || ''
             }
         });
     } catch (err) {
-        res.status(500).json({ error: err.message || 'Unable to load employee profile.' });
+        res.status(500).json({ error: err.message || 'Unable to load HR profile.' });
     }
 };
 
@@ -946,12 +1006,12 @@ exports.requestPasswordReset = async (req, res) => {
     }
 
     try {
-        const { data, error } = await buildEmployeeLookupQuery(employeeId);
+        const { data, error } = await buildHrLookupQuery(employeeId);
         if (error) throw error;
         if (!data) return res.status(404).json({ error: 'Account not found.' });
 
-        if (employeeEmailColumnAvailable === false) {
-            return res.status(500).json({ error: 'Reset requires employees.email column. Add and populate registered HR emails in Supabase.' });
+        if (hrEmailColumnAvailable === false) {
+            return res.status(500).json({ error: 'Reset requires HR.email column. Add and populate registered HR emails in Supabase.' });
         }
 
         const accountEmail = normalizeEmail(data.email);
@@ -964,7 +1024,7 @@ exports.requestPasswordReset = async (req, res) => {
         }
 
         const code = createResetCode();
-        passwordResetStore.set(String(data.employee_id), {
+        passwordResetStore.set(String(data.id), {
             code,
             expiresAt: Date.now() + PASSWORD_RESET_EXPIRY_MS,
             email: accountEmail
@@ -998,25 +1058,22 @@ exports.confirmPasswordReset = async (req, res) => {
     }
 
     try {
-        const { data, error } = await buildEmployeeLookupQuery(employeeId);
+        const { data, error } = await buildHrLookupQuery(employeeId);
         if (error) throw error;
         if (!data) return res.status(404).json({ error: 'Account not found.' });
 
-        const resetSession = passwordResetStore.get(String(data.employee_id));
+        const resetSession = passwordResetStore.get(String(data.id));
         if (!resetSession) return res.status(400).json({ error: 'No reset request found. Request a new code.' });
         if (Date.now() > resetSession.expiresAt) {
-            passwordResetStore.delete(String(data.employee_id));
+            passwordResetStore.delete(String(data.id));
             return res.status(400).json({ error: 'Verification code has expired. Request a new code.' });
         }
         if (resetSession.code !== code) return res.status(401).json({ error: 'Invalid verification code.' });
 
-        const { error: updateError } = await supabase
-            .from('employees')
-            .update({ password: newPassword })
-            .eq('employee_id', data.employee_id);
+        const { error: updateError } = await updateHrPassword(data.id, newPassword);
         if (updateError) throw updateError;
 
-        passwordResetStore.delete(String(data.employee_id));
+        passwordResetStore.delete(String(data.id));
         res.json({ message: 'Password updated successfully. You can now login.' });
     } catch (err) {
         console.error('Password reset confirmation failed:', err.message);
