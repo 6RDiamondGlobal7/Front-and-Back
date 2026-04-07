@@ -492,13 +492,25 @@ exports.getInterviewQueue = async (req, res) => {
 
         if (error) throw error;
 
-        const queue = (data || []).map((row) => ({
+        const rows = (data || []).map((row) => ({
+            applicant_no: row.applicant_no,
+            applicant: row.applicant || null,
+            schedule_id: row.schedule_id || null,
+            schedule: row.schedule || null,
+            status: 'Interview'
+        }));
+
+        const pendingApplicants = rows.filter((row) => !row.schedule);
+        const scheduledApplicants = rows.filter((row) => Boolean(row.schedule));
+
+        // Keep `queue` for backward compatibility with any existing consumers.
+        const queue = rows.map((row) => ({
             applicantNo: row.applicant_no,
             name: `${row?.applicant?.first_name || ''} ${row?.applicant?.last_name || ''}`.trim() || 'N/A',
             position: row?.applicant?.position_applied || 'Not assigned',
             branch: row?.applicant?.branch || 'Not assigned',
             status: 'Interview',
-            schedule: row?.schedule
+            schedule: row.schedule
                 ? {
                     date: row.schedule.interview_schedule || null,
                     time: row.schedule.interview_time || null,
@@ -509,7 +521,12 @@ exports.getInterviewQueue = async (req, res) => {
                 : null
         }));
 
-        res.json({ total: queue.length, queue });
+        res.json({
+            total: rows.length,
+            pendingApplicants,
+            scheduledApplicants,
+            queue
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
