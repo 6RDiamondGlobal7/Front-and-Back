@@ -912,7 +912,22 @@ exports.submitApplication = async (req, res) => {
         const applicantNo = createdApplicant?.applicant_no;
         if (!applicantNo) throw new Error('Failed to generate applicant number.');
 
-        // B. Save Status
+        // B. Save Document Flags (for public.document + applicantfacttable.document_id)
+        const { data: createdDocument, error: documentError } = await supabase
+            .from('document')
+            .insert([{
+                applicant_no: applicantNo,
+                resume: Boolean(resumeUrl),
+                cover_letter: Boolean(coverLetterUrl),
+                prc_id_url: Boolean(prcIdUrl),
+                medical_condition: medicalCondition || 'no'
+            }])
+            .select('document_id')
+            .single();
+        if (documentError) throw documentError;
+        const documentId = createdDocument?.document_id || null;
+
+        // C. Save Status
         const { data: newStatus, error: statusError } = await supabase.from('status').insert([{ 
             applied: 1, interview: 0, hired: 0, rejected: 0, applicant_no: applicantNo, applicant_name: fullName 
         }]).select().single();
@@ -920,13 +935,16 @@ exports.submitApplication = async (req, res) => {
         if (!statusError && newStatus) {
             const resolvedJobId = await resolveJobPostingId({ jobId, positionApplied, branch });
             const factPayload = { applicant_no: applicantNo, status_id: newStatus.status_id };
+            if (documentId) {
+                factPayload.document_id = documentId;
+            }
             if (resolvedJobId) {
                 factPayload.job_id = resolvedJobId;
             }
             await supabase.from('applicantfacttable').insert([factPayload]);
         }
 
-        // C. Send the Automated Email
+        // D. Send the Automated Email
         if (email) { 
             try {
                 const mailOptions = {
