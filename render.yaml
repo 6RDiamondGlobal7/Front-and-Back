@@ -7,3 +7,14 @@ services:
     buildCommand: npm install --omit=dev
     startCommand: npm start
     autoDeploy: true
+    envVars:
+      - key: EMAIL_SMTP_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_SMTP_PORT
+        value: "587"
+      - key: EMAIL_SMTP_SECURE
+        value: "false"
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
