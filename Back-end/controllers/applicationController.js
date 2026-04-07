@@ -492,9 +492,47 @@ exports.getInterviewQueue = async (req, res) => {
 
         if (error) throw error;
 
+        const applicantNos = Array.from(new Set((data || []).map((row) => String(row.applicant_no || '').trim()).filter(Boolean)));
+        let applicantsByNo = {};
+
+        if (applicantNos.length > 0) {
+            const { data: fullApplicants, error: fullApplicantsError } = await supabase
+                .from('applicant')
+                .select(`
+                    applicant_no,
+                    first_name,
+                    middle_initial,
+                    last_name,
+                    birthday,
+                    age,
+                    nationality,
+                    email,
+                    contact_number,
+                    region,
+                    province,
+                    city_municipality,
+                    barangay,
+                    detailed_address,
+                    resume_url,
+                    cover_letter_url,
+                    medical_condition,
+                    medical_details,
+                    position_applied,
+                    branch
+                `)
+                .in('applicant_no', applicantNos);
+            if (fullApplicantsError) throw fullApplicantsError;
+
+            applicantsByNo = (fullApplicants || []).reduce((acc, row) => {
+                const key = String(row.applicant_no || '').trim();
+                if (key) acc[key] = row;
+                return acc;
+            }, {});
+        }
+
         const rows = (data || []).map((row) => ({
             applicant_no: row.applicant_no,
-            applicant: row.applicant || null,
+            applicant: applicantsByNo[String(row.applicant_no || '').trim()] || row.applicant || null,
             schedule_id: row.schedule_id || null,
             schedule: row.schedule || null,
             status: 'Interview'
@@ -522,6 +560,7 @@ exports.getInterviewQueue = async (req, res) => {
         }));
 
         res.json({
+            schemaVersion: 'interview-queue-v2',
             total: rows.length,
             pendingApplicants,
             scheduledApplicants,
