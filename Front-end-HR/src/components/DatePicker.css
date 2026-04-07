@@ -50,7 +50,7 @@
   width: 372px;
   min-width: 372px;
   animation: datePickerPopoverIn 0.18s ease;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .date-picker-header {
@@ -102,9 +102,10 @@
 }
 
 .date-picker-select .custom-select-menu {
-  top: auto;
-  bottom: calc(100% + 6px);
+  top: calc(100% + 6px);
+  bottom: auto;
   max-height: 220px;
+  z-index: 80;
 }
 
 .date-picker-weekdays,

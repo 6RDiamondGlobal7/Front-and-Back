@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import {
   Briefcase,
@@ -22,6 +22,8 @@ import { getApiBaseUrl } from '../config/api';
 import ConfirmationModal from '../components/ConfirmationModal';
 import CustomSelect from '../components/CustomSelect';
 
+const PRIORITIZED_BRANCHES = ['Manila', 'Cebu', 'Davao'];
+
 const Applicants = () => {
   const API_BASE_URL = getApiBaseUrl();
   const [applicants, setApplicants] = useState([]);
@@ -29,7 +31,7 @@ const Applicants = () => {
   const [selectedApplicant, setSelectedApplicant] = useState(null);
   const [statusFilter, setStatusFilter] = useState('All');
   const [positionFilter, setPositionFilter] = useState('All Positions');
-  const [branchFilter, setBranchFilter] = useState('All Branches');
+  const [branchFilter, setBranchFilter] = useState('Manila');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [confirmAction, setConfirmAction] = useState(null);
@@ -113,7 +115,21 @@ const Applicants = () => {
   );
 
   const positions = ['All Positions', ...new Set(applicants.map((item) => item.position).filter(isSelectableFilterValue))];
-  const branches = ['All Branches', ...new Set(applicants.map((item) => item.branch).filter(isSelectableFilterValue))];
+  const branches = useMemo(() => {
+    const discoveredBranches = Array.from(
+      new Set(applicants.map((item) => item.branch).filter(isSelectableFilterValue))
+    );
+    const extras = discoveredBranches
+      .filter((branch) => !PRIORITIZED_BRANCHES.includes(branch))
+      .sort((a, b) => a.localeCompare(b));
+    return [...PRIORITIZED_BRANCHES, ...extras];
+  }, [applicants]);
+
+  useEffect(() => {
+    if (branches.length > 0 && !branches.includes(branchFilter)) {
+      setBranchFilter(branches[0]);
+    }
+  }, [branches, branchFilter]);
 
   const filteredData = applicants.filter((app) => {
     const appStatus = String(app.status || '').toLowerCase();
@@ -121,7 +137,7 @@ const Applicants = () => {
     const appId = String(app.id || '').toLowerCase();
     const matchesStatus = statusFilter === 'All' || appStatus === statusFilter.toLowerCase();
     const matchesPosition = positionFilter === 'All Positions' || app.position === positionFilter;
-    const matchesBranch = branchFilter === 'All Branches' || app.branch === branchFilter;
+    const matchesBranch = !branchFilter || app.branch === branchFilter;
     const matchesSearch = appName.includes(searchQuery.toLowerCase()) || appId.includes(searchQuery.toLowerCase());
 
     return matchesStatus && matchesPosition && matchesBranch && matchesSearch;
@@ -227,7 +243,7 @@ const Applicants = () => {
         })}
       </div>
 
-      <div className="filters-card">
+      <div className="applicants-filters-card">
         <div className="search-wrapper">
           <Search className="search-icon" size={18} />
           <input

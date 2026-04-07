@@ -66,6 +66,14 @@ const normalizeDashedTextareaInput = (value) => String(value || '')
   })
   .join('\n');
 
+const normalizeBranchLabel = (value) => {
+  const cleaned = String(value || '').trim();
+  if (!cleaned) return '';
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase();
+};
+
+const PRIORITIZED_BRANCHES = ['Manila', 'Cebu', 'Davao'];
+
 const JobPostings = () => {
   const API_BASE_URL = getApiBaseUrl();
 
@@ -110,7 +118,7 @@ const JobPostings = () => {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDept, setSelectedDept] = useState('All Departments');
-  const [selectedBranch, setSelectedBranch] = useState('All Branches');
+  const [selectedBranch, setSelectedBranch] = useState('Manila');
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
@@ -192,14 +200,18 @@ const JobPostings = () => {
   }, [editableDepartments]);
 
   const allBranches = useMemo(() => {
-    const values = Array.from(new Set(jobs.map((job) => job.branch).filter(Boolean)));
-    return ['All Branches', ...values.sort((a, b) => a.localeCompare(b))];
+    const values = Array.from(
+      new Set(jobs.map((job) => normalizeBranchLabel(job.branch)).filter(Boolean))
+    );
+    const extras = values
+      .filter((branch) => !PRIORITIZED_BRANCHES.includes(branch))
+      .sort((a, b) => a.localeCompare(b));
+    return [...PRIORITIZED_BRANCHES, ...extras];
   }, [jobs]);
 
   const createBranches = useMemo(() => {
     const fallback = ['Manila', 'Cebu', 'Davao'];
-    const clean = allBranches.filter((b) => b !== 'All Branches');
-    return clean.length > 0 ? clean : fallback;
+    return allBranches.length > 0 ? allBranches : fallback;
   }, [allBranches]);
 
   const contractTypes = useMemo(() => {
@@ -212,10 +224,16 @@ const JobPostings = () => {
       const title = String(job.job_title || '').toLowerCase();
       const matchesSearch = title.includes(searchQuery.toLowerCase());
       const matchesDept = selectedDept === 'All Departments' || job.department === selectedDept;
-      const matchesBranch = selectedBranch === 'All Branches' || job.branch === selectedBranch;
+      const matchesBranch = !selectedBranch || normalizeBranchLabel(job.branch) === selectedBranch;
       return matchesSearch && matchesDept && matchesBranch;
     });
   }, [jobs, searchQuery, selectedDept, selectedBranch]);
+
+  useEffect(() => {
+    if (allBranches.length > 0 && !allBranches.includes(selectedBranch)) {
+      setSelectedBranch(allBranches[0]);
+    }
+  }, [allBranches, selectedBranch]);
 
   const totalPages = Math.max(1, Math.ceil(filteredJobs.length / itemsPerPage));
 
@@ -634,7 +652,7 @@ const JobPostings = () => {
                         <td>
                           <div className="branch-cell">
                             <MapPin size={14} color="#94a3b8" />
-                            <span>{job.branch || 'N/A'}</span>
+                            <span>{normalizeBranchLabel(job.branch) || 'N/A'}</span>
                           </div>
                         </td>
                         <td><span className="type-badge">{job.contract_type || 'N/A'}</span></td>

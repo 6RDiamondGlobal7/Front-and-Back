@@ -5,13 +5,45 @@ const crypto = require('crypto'); // <-- Added crypto module
 // ==========================================
 // --- Email Transporter Configuration ---
 // ==========================================
-const transporter = nodemailer.createTransport({
-    service: 'gmail', 
+const emailUser = String(process.env.EMAIL_USER || '').trim();
+const emailPass = String(process.env.EMAIL_PASS || '').replace(/\s+/g, '');
+
+const createPrimaryTransporter = () => nodemailer.createTransport({
+    host: process.env.EMAIL_SMTP_HOST || 'smtp.gmail.com',
+    port: Number(process.env.EMAIL_SMTP_PORT || 465),
+    secure: String(process.env.EMAIL_SMTP_SECURE || 'true').toLowerCase() === 'true',
+    family: 4, // Avoid IPv6 ENETUNREACH in environments without IPv6 routing.
     auth: {
-        user: String(process.env.EMAIL_USER || '').trim(),
-        pass: String(process.env.EMAIL_PASS || '').replace(/\s+/g, '')
+        user: emailUser,
+        pass: emailPass
     }
 });
+
+const createFallbackTransporter = () => nodemailer.createTransport({
+    host: process.env.EMAIL_SMTP_HOST || 'smtp.gmail.com',
+    port: 587,
+    secure: false,
+    requireTLS: true,
+    family: 4,
+    auth: {
+        user: emailUser,
+        pass: emailPass
+    }
+});
+
+const sendEmail = async (mailOptions) => {
+    const primaryTransporter = createPrimaryTransporter();
+    try {
+        return await primaryTransporter.sendMail(mailOptions);
+    } catch (primaryErr) {
+        const fallbackTransporter = createFallbackTransporter();
+        try {
+            return await fallbackTransporter.sendMail(mailOptions);
+        } catch {
+            throw primaryErr;
+        }
+    }
+};
 
 const passwordResetStore = new Map();
 const PASSWORD_RESET_EXPIRY_MS = 15 * 60 * 1000;
@@ -894,7 +926,7 @@ exports.submitApplication = async (req, res) => {
                         </div>
                     `
                 };
-                await transporter.sendMail(mailOptions);
+                await sendEmail(mailOptions);
                 console.log(`Successfully sent credentials to applicant at: ${email}`);
             } catch (emailErr) {
                 console.error("Warning: Failed to send email to applicant. Error: ", emailErr.message);
@@ -1113,7 +1145,7 @@ exports.requestPasswordReset = async (req, res) => {
             email: accountEmail
         });
 
-        await transporter.sendMail({
+        await sendEmail({
             from: `"6R Diamond Recruitment" <${process.env.EMAIL_USER}>`,
             to: accountEmail,
             subject: 'Password Reset Verification Code',
