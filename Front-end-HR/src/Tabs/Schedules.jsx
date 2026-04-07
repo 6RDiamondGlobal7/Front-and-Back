@@ -78,6 +78,14 @@ const Schedules = () => {
     return cleaned ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1) : '';
   };
 
+  const normalizeApplicantPayload = (applicant) => {
+    if (!applicant || typeof applicant !== 'object') return applicant;
+    return {
+      ...applicant,
+      branch: normalizeBranch(applicant.branch)
+    };
+  };
+
   const handleBranchChange = (branch) => {
     const normalizedBranch = normalizeBranch(branch);
     setSelectedBranch(normalizedBranch);
@@ -98,25 +106,38 @@ const Schedules = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get(`${API_BASE_URL}/api/interviews/queue`);
+      const [queueResponse, applicantsResponse] = await Promise.all([
+        axios.get(`${API_BASE_URL}/api/interviews/queue`),
+        axios.get(`${API_BASE_URL}/api/applicants`)
+      ]);
+
+      const data = queueResponse?.data || {};
       const pendingData = Array.isArray(data?.pendingApplicants) ? data.pendingApplicants : [];
       const interviewData = Array.isArray(data?.scheduledApplicants) ? data.scheduledApplicants : [];
+      const applicantRows = Array.isArray(applicantsResponse?.data) ? applicantsResponse.data : [];
+      const applicantsById = applicantRows.reduce((acc, row) => {
+        const id = String(row?.id || '').trim();
+        if (id) acc[id] = row;
+        return acc;
+      }, {});
+
+      const hydrateApplicant = (item) => {
+        const applicantNo = String(item?.applicant_no || item?.applicantNo || '').trim();
+        const detailed = applicantsById[applicantNo] || null;
+        return {
+          ...item,
+          applicant: normalizeApplicantPayload({
+            ...(item?.applicant || {}),
+            ...(detailed || {})
+          })
+        };
+      };
 
       setPendingApplicants(
-        pendingData.map((item) => ({
-          ...item,
-          applicant: item.applicant
-            ? { ...item.applicant, branch: normalizeBranch(item.applicant.branch) }
-            : item.applicant
-        }))
+        pendingData.map(hydrateApplicant)
       );
       setScheduledApplicants(
-        interviewData.map((item) => ({
-          ...item,
-          applicant: item.applicant
-            ? { ...item.applicant, branch: normalizeBranch(item.applicant.branch) }
-            : item.applicant
-        }))
+        interviewData.map(hydrateApplicant)
       );
     } catch (error) {
       setToast({ open: true, tone: 'error', message: 'Failed to load interview queue.' });
