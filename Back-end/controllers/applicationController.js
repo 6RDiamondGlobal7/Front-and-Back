@@ -7,6 +7,7 @@ const crypto = require('crypto'); // <-- Added crypto module
 // ==========================================
 const emailUser = String(process.env.EMAIL_USER || '').trim();
 const emailPass = String(process.env.EMAIL_PASS || '').replace(/\s+/g, '');
+const defaultFromAddress = emailUser || 'no-reply@6rdiamond.local';
 
 const createPrimaryTransporter = () => nodemailer.createTransport({
     host: process.env.EMAIL_SMTP_HOST || 'smtp.gmail.com',
@@ -32,6 +33,10 @@ const createFallbackTransporter = () => nodemailer.createTransport({
 });
 
 const sendEmail = async (mailOptions) => {
+    if (!emailUser || !emailPass) {
+        throw new Error('Email sender credentials are missing. Set EMAIL_USER and EMAIL_PASS in Back-end/.env.');
+    }
+
     const primaryTransporter = createPrimaryTransporter();
     try {
         return await primaryTransporter.sendMail(mailOptions);
@@ -427,6 +432,25 @@ const toPublicResetError = (error) => {
 
     if (normalized.includes('missing credentials')) {
         return 'Email sender credentials are missing. Set EMAIL_USER and EMAIL_PASS in Back-end/.env.';
+    }
+
+    return message;
+};
+
+const toPublicEmailError = (error) => {
+    const message = String(error?.message || 'Unable to send email.');
+    const normalized = message.toLowerCase();
+
+    if (normalized.includes('invalid login') || normalized.includes('username and password not accepted')) {
+        return 'Email sender credentials are invalid. Update EMAIL_USER and EMAIL_PASS (Gmail app password) in Back-end/.env.';
+    }
+
+    if (normalized.includes('missing credentials')) {
+        return 'Email sender credentials are missing. Set EMAIL_USER and EMAIL_PASS in Back-end/.env.';
+    }
+
+    if (normalized.includes('invalid from')) {
+        return 'Sender address is invalid. Ensure EMAIL_USER is a valid email address in Back-end/.env.';
     }
 
     return message;
@@ -906,7 +930,7 @@ exports.submitApplication = async (req, res) => {
         if (email) { 
             try {
                 const mailOptions = {
-                    from: `"6R Diamond Recruitment" <${process.env.EMAIL_USER}>`, 
+                    from: `"6R Diamond Recruitment" <${defaultFromAddress}>`, 
                     to: email, 
                     subject: 'Application Received - Login Credentials',
                     html: `
@@ -929,7 +953,18 @@ exports.submitApplication = async (req, res) => {
                 await sendEmail(mailOptions);
                 console.log(`Successfully sent credentials to applicant at: ${email}`);
             } catch (emailErr) {
-                console.error("Warning: Failed to send email to applicant. Error: ", emailErr.message);
+                const publicEmailError = toPublicEmailError(emailErr);
+                console.error('Warning: Failed to send email to applicant.', {
+                    applicantNo,
+                    recipient: email,
+                    message: publicEmailError,
+                    smtpCode: emailErr?.code || null,
+                    responseCode: emailErr?.responseCode || null
+                });
+                return res.status(502).json({
+                    error: `Application submitted but email delivery failed: ${publicEmailError}`,
+                    applicantId: applicantNo
+                });
             }
         }
 
@@ -1146,7 +1181,7 @@ exports.requestPasswordReset = async (req, res) => {
         });
 
         await sendEmail({
-            from: `"6R Diamond Recruitment" <${process.env.EMAIL_USER}>`,
+            from: `"6R Diamond Recruitment" <${defaultFromAddress}>`,
             to: accountEmail,
             subject: 'Password Reset Verification Code',
             html: `<p>Hello ${data.first_name || 'HR User'},</p><p>Your password reset code is <strong>${code}</strong>.</p><p>This code will expire in 15 minutes.</p>`
