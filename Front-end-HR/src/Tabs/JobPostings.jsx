@@ -431,7 +431,8 @@ const JobPostings = () => {
       fetchJobPostingsDashboard();
     } catch (err) {
       console.error('Failed to create job posting:', err);
-      alert('Failed to create job posting. Please try again.');
+      const apiError = err?.response?.data?.error;
+      alert(apiError ? `Failed to create job posting: ${apiError}` : 'Failed to create job posting. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -472,7 +473,8 @@ const JobPostings = () => {
       fetchJobPostingsDashboard();
     } catch (err) {
       console.error('Failed to update job posting:', err);
-      alert('Failed to update job posting. Please try again.');
+      const apiError = err?.response?.data?.error;
+      alert(apiError ? `Failed to update job posting: ${apiError}` : 'Failed to update job posting. Please try again.');
     } finally {
       setSaving(false);
     }

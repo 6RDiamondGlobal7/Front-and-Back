@@ -204,9 +204,18 @@ const normalizeMaxApplicants = (value) => {
 };
 
 const isMissingColumnError = (error, columnName) => {
-    const msg = String(error?.message || '').toLowerCase();
-    const needle = `column ${String(columnName || '').toLowerCase()} does not exist`;
-    return Boolean(columnName) && msg.includes(needle);
+    const msg = String(error?.message || '');
+    const col = String(columnName || '').trim();
+    if (!col) return false;
+
+    // Supabase/Postgres messages vary, e.g.:
+    // - column max_applicants does not exist
+    // - column "max_applicants" does not exist
+    // - column jobpostings.max_applicants does not exist
+    // - column "jobpostings.max_applicants" does not exist
+    const escaped = col.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`column\\s+\\"?(?:[a-z0-9_]+\\.)?${escaped}\\"?\\s+does\\s+not\\s+exist`, 'i');
+    return pattern.test(msg);
 };
 
 const getApplicantJobId = (applicantRow) => {
