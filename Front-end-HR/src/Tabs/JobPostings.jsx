@@ -102,6 +102,7 @@ const JobPostings = () => {
     contract_type: '',
     description: '',
     max_applicants: '',
+    accepting_until: '',
     responsibilitiesText: '',
     qualificationsText: '',
     benefitsText: ''
@@ -114,10 +115,32 @@ const JobPostings = () => {
     contract_type: 'Full-time',
     description: '',
     max_applicants: '',
+    accepting_until: '',
     responsibilitiesText: '',
     qualificationsText: '',
     benefitsText: ''
   });
+
+  const todayDateOnly = () => new Date().toISOString().slice(0, 10);
+
+  const tomorrowDateOnly = () => {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().slice(0, 10);
+  };
+
+  const normalizeDateOnlyInput = (value) => {
+    const raw = String(value ?? '').trim();
+    if (!raw) return '';
+    return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : '';
+  };
+
+  const isFutureDateOnly = (value) => {
+    const normalized = normalizeDateOnlyInput(value);
+    if (!normalized) return false;
+    return normalized > todayDateOnly();
+  };
 
   const normalizeMaxApplicantsInput = (value) => {
     const raw = String(value ?? '').trim();
@@ -338,6 +361,7 @@ const JobPostings = () => {
         contract_type: job.contract_type || contractTypes[0] || 'Full-time',
         description: getDescriptionForJob(job),
         max_applicants: normalizeMaxApplicantsInput(job.max_applicants),
+        accepting_until: normalizeDateOnlyInput(job.accepting_until),
         responsibilitiesText: arrayToLines(job.responsibilities),
         qualificationsText: arrayToLines(job.qualifications),
         benefitsText: arrayToLines(job.benefits)
@@ -352,6 +376,7 @@ const JobPostings = () => {
         contract_type: contractTypes[0] || 'Full-time',
         description: '',
         max_applicants: '',
+        accepting_until: '',
         responsibilitiesText: '',
         qualificationsText: '',
         benefitsText: ''
@@ -414,6 +439,7 @@ const JobPostings = () => {
         contract_type: createForm.contract_type,
         description: createForm.description || buildDefaultDescription(createForm.job_title),
         max_applicants: toMaxApplicantsPayload(createForm.max_applicants),
+        accepting_until: normalizeDateOnlyInput(createForm.accepting_until) || null,
         responsibilities: linesToArray(withDashPrefixPerLine(createForm.responsibilitiesText)),
         qualifications: linesToArray(withDashPrefixPerLine(createForm.qualificationsText)),
         benefits: linesToArray(withDashPrefixPerLine(createForm.benefitsText))
@@ -448,6 +474,7 @@ const JobPostings = () => {
         contract_type: editForm.contract_type,
         description: editForm.description,
         max_applicants: toMaxApplicantsPayload(editForm.max_applicants),
+        accepting_until: normalizeDateOnlyInput(editForm.accepting_until) || null,
         responsibilities: linesToArray(withDashPrefixPerLine(editForm.responsibilitiesText)),
         qualifications: linesToArray(withDashPrefixPerLine(editForm.qualificationsText)),
         benefits: linesToArray(withDashPrefixPerLine(editForm.benefitsText))
@@ -461,6 +488,7 @@ const JobPostings = () => {
               contract_type: editForm.contract_type,
               description: editForm.description,
               max_applicants: toMaxApplicantsPayload(editForm.max_applicants),
+              accepting_until: normalizeDateOnlyInput(editForm.accepting_until) || null,
               responsibilities: linesToArray(editForm.responsibilitiesText),
               qualifications: linesToArray(editForm.qualificationsText),
               benefits: linesToArray(editForm.benefitsText)
@@ -849,6 +877,22 @@ const JobPostings = () => {
                 />
               </div>
               <div className="form-group">
+                <label>Accepting Applications Until (Optional)</label>
+                <input
+                  className="form-input"
+                  type="date"
+                  min={tomorrowDateOnly()}
+                  value={createForm.accepting_until}
+                  onChange={(e) => {
+                    const next = normalizeDateOnlyInput(e.target.value);
+                    setCreateForm((prev) => ({ ...prev, accepting_until: next }));
+                  }}
+                />
+                {createForm.accepting_until && !isFutureDateOnly(createForm.accepting_until) && (
+                  <div className="form-hint error">Please choose a future date.</div>
+                )}
+              </div>
+              <div className="form-group">
                 <label>Job Description</label>
                 <input
                   className="form-input"
@@ -989,6 +1033,22 @@ const JobPostings = () => {
                   onChange={(e) => setEditForm((prev) => ({ ...prev, max_applicants: normalizeMaxApplicantsInput(e.target.value) }))}
                   placeholder="Leave blank for unlimited"
                 />
+              </div>
+              <div className="form-group">
+                <label>Accepting Applications Until (Optional)</label>
+                <input
+                  className="form-input"
+                  type="date"
+                  min={tomorrowDateOnly()}
+                  value={editForm.accepting_until}
+                  onChange={(e) => {
+                    const next = normalizeDateOnlyInput(e.target.value);
+                    setEditForm((prev) => ({ ...prev, accepting_until: next }));
+                  }}
+                />
+                {editForm.accepting_until && !isFutureDateOnly(editForm.accepting_until) && (
+                  <div className="form-hint error">Please choose a future date.</div>
+                )}
               </div>
               <div className="form-group">
                 <label>Job Description</label>

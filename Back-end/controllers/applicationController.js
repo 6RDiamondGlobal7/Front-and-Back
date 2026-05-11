@@ -196,6 +196,21 @@ const TITLE_TO_ROLE_IDS = Object.entries(ROLE_ID_TO_TITLE).reduce((acc, [roleId,
 
 const isJobActive = (status) => status === true || status === 'true' || status === 'Open' || status === 'Active';
 
+const normalizeIsoDateOnly = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return null;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+    return raw;
+};
+
+const todayIsoDateOnly = () => new Date().toISOString().slice(0, 10);
+
+const isFutureIsoDateOnly = (isoDateOnly) => {
+    const normalized = normalizeIsoDateOnly(isoDateOnly);
+    if (!normalized) return false;
+    return normalized > todayIsoDateOnly();
+};
+
 const normalizeMaxApplicants = (value) => {
     if (value === null || value === undefined) return null;
     const parsed = Number.parseInt(String(value).trim(), 10);
@@ -243,6 +258,12 @@ const ensureAutoCloseForJobs = async (jobsWithCounts) => {
     } catch (err) {
         // ignore
     }
+};
+
+const isJobExpiredByDate = (job, nowIsoDateOnly) => {
+    const deadline = normalizeIsoDateOnly(job?.accepting_until);
+    if (!deadline) return false;
+    return deadline < (nowIsoDateOnly || todayIsoDateOnly());
 };
 
 const parseViewTimestamp = (eventId) => {
@@ -331,10 +352,12 @@ const buildJobPostingsSnapshot = async () => {
     if (viewEventsError) throw viewEventsError;
 
     const applicantsList = applicants || [];
+    const nowDateOnly = todayIsoDateOnly();
 
     const jobsWithCounts = (jobs || []).map((job) => {
         const limit = normalizeMaxApplicants(job?.max_applicants);
         const hasLimit = Boolean(limit);
+        const expiredByDate = isJobExpiredByDate(job, nowDateOnly);
 
         const countByJobId = applicantsList.filter((applicant) => (
             String(getApplicantJobId(applicant) || '').trim() === String(job?.job_id || '').trim()
@@ -344,13 +367,14 @@ const buildJobPostingsSnapshot = async () => {
         const applicantCount = countByJobId > 0 ? countByJobId : fallbackCount;
 
         const isFull = hasLimit && applicantCount >= limit;
-        const jobStatus = isFull ? false : job?.job_status;
+        const jobStatus = (isFull || expiredByDate) ? false : job?.job_status;
 
         return enrichJobPosting({
             ...job,
             job_status: jobStatus,
             total_applicants: applicantCount,
-            is_full: isFull
+            is_full: isFull,
+            is_expired: expiredByDate
         });
     });
 
@@ -921,7 +945,7 @@ exports.recordSiteView = async (req, res) => {
 };
 
 exports.createJobPosting = async (req, res) => {
-    const { job_title, department, contract_type, branch, description, responsibilities, qualifications, benefits, max_applicants } = req.body || {};
+    const { job_title, department, contract_type, branch, description, responsibilities, qualifications, benefits, max_applicants, accepting_until } = req.body || {};
     const normalizedDescription = String(description || '').trim();
     try {
         const basePayload = {
@@ -943,12 +967,22 @@ exports.createJobPosting = async (req, res) => {
             basePayload.max_applicants = maxApplicants;
         }
 
+        const acceptingUntil = normalizeIsoDateOnly(accepting_until);
+        if (accepting_until !== undefined) {
+            if (acceptingUntil && !isFutureIsoDateOnly(acceptingUntil)) {
+                return res.status(400).json({ error: 'Accepting-until date must be a future date.' });
+            }
+            basePayload.accepting_until = acceptingUntil;
+        }
+
         let created = null;
         const { data, error } = await supabase.from('jobpostings').insert([basePayload]).select().single();
         if (!error) created = data;
 
-        if (error && isMissingColumnError(error, 'max_applicants')) {
-            delete basePayload.max_applicants;
+        if (error && (isMissingColumnError(error, 'max_applicants') || isMissingColumnError(error, 'accepting_until'))) {
+            if (isMissingColumnError(error, 'max_applicants')) delete basePayload.max_applicants;
+            if (isMissingColumnError(error, 'accepting_until')) delete basePayload.accepting_until;
+
             const retry = await supabase.from('jobpostings').insert([basePayload]).select().single();
             if (retry.error) throw retry.error;
             created = retry.data;
@@ -975,15 +1009,25 @@ exports.updateJobPosting = async (req, res) => {
             payload.max_applicants = normalized;
         }
 
+        if (Object.prototype.hasOwnProperty.call(payload, 'accepting_until')) {
+            const normalized = normalizeIsoDateOnly(payload.accepting_until);
+            if (normalized && !isFutureIsoDateOnly(normalized)) {
+                return res.status(400).json({ error: 'Accepting-until date must be a future date.' });
+            }
+            payload.accepting_until = normalized;
+        }
+
         const { data, error } = await supabase.from('jobpostings').update(payload).eq('job_id', req.params.id).select().single();
         if (!error) {
             res.json({ message: 'Updated successfully', job: data });
             return;
         }
 
-        if (isMissingColumnError(error, 'max_applicants') && Object.prototype.hasOwnProperty.call(payload, 'max_applicants')) {
+        if ((isMissingColumnError(error, 'max_applicants') && Object.prototype.hasOwnProperty.call(payload, 'max_applicants'))
+            || (isMissingColumnError(error, 'accepting_until') && Object.prototype.hasOwnProperty.call(payload, 'accepting_until'))) {
             const retryPayload = { ...payload };
-            delete retryPayload.max_applicants;
+            if (isMissingColumnError(error, 'max_applicants')) delete retryPayload.max_applicants;
+            if (isMissingColumnError(error, 'accepting_until')) delete retryPayload.accepting_until;
             const retry = await supabase.from('jobpostings').update(retryPayload).eq('job_id', req.params.id).select().single();
             if (retry.error) throw retry.error;
             res.json({ message: 'Updated successfully', job: retry.data });
@@ -1026,13 +1070,22 @@ exports.submitApplication = async (req, res) => {
         if (resolvedJobIdPre) {
             const { data: jobRow, error: jobError } = await supabase
                 .from('jobpostings')
-                .select('job_id, job_title, job_status, max_applicants')
+                .select('job_id, job_title, job_status, max_applicants, accepting_until')
                 .eq('job_id', resolvedJobIdPre)
                 .maybeSingle();
 
             if (jobError) throw jobError;
 
             const limit = normalizeMaxApplicants(jobRow?.max_applicants);
+            const expiredByDate = isJobExpiredByDate(jobRow, todayIsoDateOnly());
+            if (expiredByDate) {
+                try { await supabase.from('jobpostings').update({ job_status: false }).eq('job_id', resolvedJobIdPre); } catch {}
+                return res.status(409).json({
+                    error: `This job posting is closed and no longer accepting applications.`,
+                    jobId: resolvedJobIdPre,
+                    jobTitle: jobRow?.job_title || null
+                });
+            }
             if (limit) {
                 const { count, error: countError } = await supabase
                     .from('applicantfacttable')
