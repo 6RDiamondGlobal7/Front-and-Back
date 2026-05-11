@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import './ApplyLanding.css';
 import logoImage from '../../assets/logo.png';
 
+const APPLICATION_ACTIVE_WINDOW_DAYS = 90;
+const APPLICATION_POLICY_STATEMENT = `Applications remain active in our system for ${APPLICATION_ACTIVE_WINDOW_DAYS} calendar days from the submission date, unless HR closes the application earlier by marking it as Hired or Rejected.`;
+
 /* --- ICONS --- */
 const IconArrowRight = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -225,6 +228,10 @@ const StatusModal = ({ isOpen, onClose }) => {
             Your applicant number and password was sent to your email after submitting your application
           </div>
 
+          <div className="al-policy-box">
+            <strong>Application Policy:</strong> {APPLICATION_POLICY_STATEMENT}
+          </div>
+
           <button disabled={!appNumber.trim() || !password.trim()} className="al-btn-login-gold" onClick={handleLogin}>
             Login
           </button>
@@ -264,6 +271,11 @@ const ApplyLanding = () => {
           <p className="al-subtitle">
             Join our team of professional logistics experts and make a difference in connecting the world through innovative supply chain solutions.
           </p>
+
+          <div className="al-policy-banner">
+            <span className="al-policy-badge">Business Policy</span>
+            <p>{APPLICATION_POLICY_STATEMENT}</p>
+          </div>
 
           <div className="al-options-container">
             <div className="al-option-box gray">

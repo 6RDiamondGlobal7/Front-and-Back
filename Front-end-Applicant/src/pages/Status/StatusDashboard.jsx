@@ -12,6 +12,7 @@ const IconXSmall = () => (<svg width="14" height="14" viewBox="0 0 24 24" fill="
 const IconMapPin = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>);
 const IconUser = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>);
 const IconClipboard = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="2" width="6" height="4" rx="1" /><path d="M9 4H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2" /></svg>);
+const IconClock = () => (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>);
 
 const BRANCH_INTERVIEW_PRESETS = {
   manila: {
@@ -61,6 +62,13 @@ const formatTimeRange = (value) => {
   if (Number.isNaN(start.getTime())) return 'To be announced';
   const end = new Date(start.getTime() + 60 * 60 * 1000);
   return `${start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} - ${end.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`;
+};
+
+const formatPolicyDate = (value) => {
+  if (!value) return 'N/A';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'N/A';
+  return date.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' });
 };
 
 const hasScheduleDetails = (schedule) => Boolean(
@@ -263,6 +271,9 @@ const StatusDashboard = () => {
       ? (schedule?.reminders || 'Arrive 10 minutes early and bring one valid ID.')
       : `${fallbackSchedule?.reminders || 'Be on time.'} Keep your line open. Our HR team will contact you once a schedule is available.`)
     : 'Interview details will be shared after your online application is accepted by HR.';
+  const applicationPolicy = applicant?.policy || null;
+  const policyStatement = applicationPolicy?.statement || 'Applications remain active in our system for a limited recruitment review period from the submission date.';
+  const policyActiveUntil = formatPolicyDate(applicationPolicy?.activeUntil);
 
   return (
     <div className="sd-page-container">
@@ -307,6 +318,18 @@ const StatusDashboard = () => {
 
       {!loading && !error && (
         <>
+          <div className="sd-policy-card">
+            <div className="sd-policy-header">
+              <span className="sd-policy-badge">Business Policy</span>
+              <span className="sd-policy-days"><IconClock /> Active window: {applicationPolicy?.activeWindowDays || 'N/A'} days</span>
+            </div>
+            <p className="sd-policy-text">{policyStatement}</p>
+            <div className="sd-policy-meta">
+              <span><strong>Active Until:</strong> {policyActiveUntil}</span>
+              <span><strong>Guidance:</strong> Keep your applicant number and password available while your application is under review.</span>
+            </div>
+          </div>
+
           <div className="sd-progress-card">
             <h2 className="sd-section-title">Recruitment Progress</h2>
 

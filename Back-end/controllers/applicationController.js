@@ -483,6 +483,36 @@ const inferAppliedAtFromApplicant = (applicantRow) => {
     return null;
 };
 
+const APPLICATION_ACTIVE_WINDOW_DAYS = 90;
+
+const buildApplicationPolicy = (appliedAt) => {
+    if (!appliedAt) {
+        return {
+            activeWindowDays: APPLICATION_ACTIVE_WINDOW_DAYS,
+            activeUntil: null,
+            statement: `Applications remain active for ${APPLICATION_ACTIVE_WINDOW_DAYS} calendar days from the submission date, unless HR closes the application earlier by marking it as Hired or Rejected.`
+        };
+    }
+
+    const appliedDate = new Date(appliedAt);
+    if (Number.isNaN(appliedDate.getTime())) {
+        return {
+            activeWindowDays: APPLICATION_ACTIVE_WINDOW_DAYS,
+            activeUntil: null,
+            statement: `Applications remain active for ${APPLICATION_ACTIVE_WINDOW_DAYS} calendar days from the submission date, unless HR closes the application earlier by marking it as Hired or Rejected.`
+        };
+    }
+
+    const activeUntil = new Date(appliedDate);
+    activeUntil.setDate(activeUntil.getDate() + APPLICATION_ACTIVE_WINDOW_DAYS);
+
+    return {
+        activeWindowDays: APPLICATION_ACTIVE_WINDOW_DAYS,
+        activeUntil: activeUntil.toISOString(),
+        statement: `Applications remain active for ${APPLICATION_ACTIVE_WINDOW_DAYS} calendar days from the submission date, unless HR closes the application earlier by marking it as Hired or Rejected.`
+    };
+};
+
 // ==========================================
 // --- API Routes / Controllers ---
 // ==========================================
@@ -1072,6 +1102,8 @@ exports.getApplicantStatus = async (req, res) => {
 
         const fact = Array.isArray(applicant.applicantfacttable) ? applicant.applicantfacttable[0] : null;
         const schedule = fact?.schedule || null;
+        const appliedAt = inferAppliedAtFromApplicant(applicant);
+        const policy = buildApplicationPolicy(appliedAt);
 
         res.json({
             applicant: {
@@ -1080,8 +1112,9 @@ exports.getApplicantStatus = async (req, res) => {
                 status: extractApplicantStatus(applicant),
                 branch: applicant.branch || 'Not assigned',
                 position: applicant.position_applied || 'Not assigned',
-                appliedAt: inferAppliedAtFromApplicant(applicant),
+                appliedAt,
                 checkedAt: new Date().toISOString(),
+                policy,
                 interviewSchedule: schedule
                     ? {
                         date: schedule.interview_schedule || null,
