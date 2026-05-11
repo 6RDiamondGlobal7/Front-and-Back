@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { getApiBaseUrl } from '../config/api';
 import { 
@@ -28,6 +28,7 @@ const Schedules = () => {
   const [interviewSearchQuery, setInterviewSearchQuery] = useState('');
   const [interviewDateFilter, setInterviewDateFilter] = useState('');
   const [interviewBranchFilter, setInterviewBranchFilter] = useState('Manila');
+  const [interviewPositionFilter, setInterviewPositionFilter] = useState('');
   
   // Staged for Time Slot Assignment (Right Panel)
   const [stagedApplicants, setStagedApplicants] = useState([]);
@@ -65,6 +66,24 @@ const Schedules = () => {
     '4:00 PM - 4:30 PM',
     '4:30 PM - 5:00 PM'
   ];
+
+  const ROLE_ID_TO_TITLE = {
+    'corp-sec': 'Corporate Secretary',
+    'licensed-broker': 'Licensed Customs Broker',
+    'office-manager': 'Office Manager',
+    'messenger': 'Messenger / Logistics',
+    'secretary': 'Secretary to the Office Manager',
+    'brokerage-specialist': 'Brokerage Specialist',
+    'import-export-head': 'Import & Export Head',
+    'admin-staff': 'Administration Staff',
+    'doc-head': 'Documentation Head'
+  };
+
+  const getPositionDisplayName = (roleId) => {
+    const id = String(roleId || '').trim();
+    return ROLE_ID_TO_TITLE[id] || id; // Fallback to id if not found
+  };
+
   // --- BRANCH DETAILS DICTIONARY (Para sa Auto-Fill) ---
   const branchDetails = {
     'Manila': { location: 'Burke Building, Burke St, Binondo, Manila, 1006 Metro Manila', room: '210' },
@@ -305,6 +324,21 @@ const Schedules = () => {
     ];
   };
 
+  // Derive unique positions from ALL scheduled applicants (status = Interview)
+  // so the dropdown only shows positions that actually exist in the current data
+  const availablePositions = useMemo(() => {
+    const seen = new Set();
+    const positions = [];
+    scheduledApplicants.forEach((app) => {
+      const pos = String(app.applicant?.position_applied || '').trim();
+      if (pos && !seen.has(pos.toLowerCase())) {
+        seen.add(pos.toLowerCase());
+        positions.push(pos);
+      }
+    });
+    return positions.sort((a, b) => a.localeCompare(b));
+  }, [scheduledApplicants]);
+
   const filteredScheduledApplicants = scheduledApplicants.filter((app) => {
     const fullName = `${app.applicant?.first_name || ''} ${app.applicant?.last_name || ''}`.toLowerCase();
     const applicantNo = String(app.applicant_no || '').toLowerCase();
@@ -313,7 +347,9 @@ const Schedules = () => {
     const matchesDate = !interviewDateFilter || scheduleDate === interviewDateFilter;
     const applicantBranch = normalizeBranch(app.applicant?.branch);
     const matchesBranch = applicantBranch === normalizeBranch(interviewBranchFilter);
-    return matchesSearch && matchesDate && matchesBranch;
+    const applicantPosition = String(app.applicant?.position_applied || '').trim().toLowerCase();
+    const matchesPosition = !interviewPositionFilter || applicantPosition === interviewPositionFilter.toLowerCase();
+    return matchesSearch && matchesDate && matchesBranch && matchesPosition;
   });
 
   const filteredGroupedScheduled = filteredScheduledApplicants.reduce((groups, app) => {
@@ -511,6 +547,19 @@ const Schedules = () => {
               ]}
             />
           </div>
+          <div className="interview-position-filter">
+            <CustomSelect
+              className="schedule-select"
+              icon={<Briefcase size={18} />}
+              value={interviewPositionFilter}
+              onChange={setInterviewPositionFilter}
+              placeholder="All Positions"
+              options={[
+                { value: '', label: 'All Positions' },
+                ...availablePositions.map((pos) => ({ value: pos, label: getPositionDisplayName(pos) }))
+              ]}
+            />
+          </div>
           <div className="interview-date-filter">
             <DatePicker
               value={interviewDateFilter}
@@ -536,14 +585,36 @@ const Schedules = () => {
             {scheduledApplicants.length === 0 ? 'No interviews scheduled yet.' : 'No interviews match the current filters.'}
           </div>
         ) : (
-          Object.keys(filteredGroupedScheduled).sort().map(date => (
+          Object.keys(filteredGroupedScheduled).sort().map(date => {
+            const groupApps = filteredGroupedScheduled[date];
+            const positionsInGroup = [...new Set(
+              groupApps.map(a => String(a.applicant?.position_applied || '').trim()).filter(Boolean)
+            )];
+            return (
             <div key={date} className="date-group">
               <div className="date-group-title">
                 <Calendar size={20} className="text-muted" />
                 <div>
                   <h4>{formatDateForDisplay(date)}</h4>
-                  <p>{filteredGroupedScheduled[date].length} interviews scheduled</p>
+                  <p>{groupApps.length} {groupApps.length === 1 ? 'interview' : 'interviews'} scheduled</p>
                 </div>
+                {positionsInGroup.length > 0 && (
+                  <div className="date-group-positions">
+                    {positionsInGroup.map((pos) => (
+                      <span
+                        key={pos}
+                        className={`position-tag${interviewPositionFilter && interviewPositionFilter.toLowerCase() === pos.toLowerCase() ? ' active' : ''}`}
+                        title={`Filter by ${getPositionDisplayName(pos)}`}
+                        onClick={() => setInterviewPositionFilter(
+                          interviewPositionFilter.toLowerCase() === pos.toLowerCase() ? '' : pos
+                        )}
+                      >
+                        <Briefcase size={12} />
+                        {getPositionDisplayName(pos)}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
               
               <div className="date-group-content">
@@ -575,7 +646,8 @@ const Schedules = () => {
                 ))}
               </div>
             </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

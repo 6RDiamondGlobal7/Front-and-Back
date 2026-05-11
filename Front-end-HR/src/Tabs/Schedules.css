@@ -422,23 +422,26 @@
 
 .interview-filter-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 220px 258px;
+  grid-template-columns: minmax(0, 1fr) 200px 200px 248px;
   gap: 14px;
 }
 
 .interview-search-box,
 .interview-date-filter,
-.interview-branch-filter {
+.interview-branch-filter,
+.interview-position-filter {
   position: relative;
 }
 
-.interview-branch-filter .custom-select-trigger {
+.interview-branch-filter .custom-select-trigger,
+.interview-position-filter .custom-select-trigger {
   min-height: 52px;
   border-radius: 14px;
   font-weight: 700;
 }
 
-.interview-branch-filter .custom-select-label {
+.interview-branch-filter .custom-select-label,
+.interview-position-filter .custom-select-label {
   font-weight: 700;
 }
 
@@ -908,7 +911,7 @@
   }
 
   .interview-filter-row {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
   }
 
   .interview-item-row {
@@ -949,4 +952,48 @@
     opacity: 1;
     transform: translateY(0) scale(1);
   }
+}
+
+/* ---- Position Tags in Date Group Header ---- */
+.date-group-title {
+  flex-wrap: wrap;
+}
+
+.date-group-positions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-left: auto;
+  align-items: center;
+}
+
+.position-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #edf4ff;
+  border: 1px solid #c9dbfa;
+  color: var(--hr-blue-strong);
+  border-radius: 10px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.position-tag:hover {
+  background: #d8eaff;
+  border-color: #95bcf5;
+}
+
+.position-tag.active {
+  background: linear-gradient(135deg, #5c9ef3 0%, #4c89e8 100%);
+  border-color: #4c89e8;
+  color: #fff;
+}
+
+.position-tag.active:hover {
+  background: linear-gradient(135deg, #4d91ef 0%, #3d7ce0 100%);
 }

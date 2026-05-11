@@ -180,15 +180,18 @@ function removeLegacyArtifacts(hrDir) {
   const applicantDir = findDirByPredicate(path.join(ROOT_DIR, 'Front-end-Applicant'), (pkg, _, name) => {
     return pkg?.name === 'application-portal' || /applicant/i.test(name);
   });
+  const backendDir = findDirByPredicate(path.join(ROOT_DIR, 'Back-end'), (pkg) => pkg?.name === 'back-end');
 
   if (!exists(path.join(hrDir, 'package.json'))) fail('Front-end-HR folder not found.');
   if (!exists(path.join(applicantDir, 'package.json'))) fail('Front-end-Applicant folder not found.');
+  if (!exists(path.join(backendDir, 'package.json'))) fail('Back-end folder not found.');
 
   const unpackedDir = path.join(hrDir, 'release', 'win-unpacked');
 
   log('INFO', `Root Dir:      ${ROOT_DIR}`);
   log('INFO', `HR Dir:        ${hrDir}`);
   log('INFO', `Applicant Dir: ${applicantDir}`);
+  log('INFO', `Back-end Dir:  ${backendDir}`);
 
   if (run('node', ['-v']) !== 0 || runNpm(['-v']) !== 0) {
     fail('Node.js / npm not found. Install Node.js LTS then retry.');
@@ -208,6 +211,8 @@ function removeLegacyArtifacts(hrDir) {
   if (runNpm(['run', 'build'], { cwd: applicantDir }) !== 0) {
     fail('Front-end-Applicant build failed.');
   }
+
+  installWithRecovery(backendDir, 'Back-end', ['install']);
 
   installWithRecovery(
     hrDir,

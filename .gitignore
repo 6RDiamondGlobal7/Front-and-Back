@@ -27,3 +27,6 @@ vite.log
 
 release/
 dist/
+# Environment Variables
+**/.env
+**/.env.*
