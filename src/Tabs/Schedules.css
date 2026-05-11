@@ -422,13 +422,17 @@
 
 .interview-filter-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 220px 258px;
+  grid-template-columns: minmax(0, 1fr) 220px 220px 258px;
   gap: 14px;
 }
 
 .interview-search-box,
 .interview-date-filter,
 .interview-branch-filter {
+  position: relative;
+}
+
+.interview-position-filter {
   position: relative;
 }
 
@@ -524,6 +528,64 @@
   padding: 16px 18px;
   background: #eef5ff;
   border-bottom: 1px solid #dbe6f4;
+}
+
+.date-group-summary {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.date-summary-chip {
+  border: 1px solid #d3dfef;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 999px;
+  padding: 6px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 800;
+  color: #2f4664;
+  max-width: 260px;
+}
+
+.date-summary-chip:hover {
+  background: #ffffff;
+  border-color: #bcd5fb;
+}
+
+.date-summary-chip.active {
+  background: linear-gradient(135deg, #5c9ef3 0%, #4c89e8 100%);
+  border-color: transparent;
+  color: #ffffff;
+}
+
+.date-summary-chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 190px;
+}
+
+.date-summary-chip-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  height: 22px;
+  border-radius: 999px;
+  background: #eaf2ff;
+  color: var(--hr-blue-strong);
+  font-size: 0.82rem;
+  padding: 0 8px;
+}
+
+.date-summary-chip.active .date-summary-chip-count {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
 }
 
 .date-group-title h4 {

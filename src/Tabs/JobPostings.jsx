@@ -21,8 +21,10 @@ import {
 import { getApiBaseUrl } from '../config/api';
 import './JobPostings.css';
 import CustomSelect from '../components/CustomSelect';
+import DatePicker from '../components/DatePicker';
 
 const DEFAULT_CONTRACT_TYPES = ['Full-time', 'Part-time', 'Contract', 'Internship'];
+const MAX_APPLICANTS_CAP = 10000;
 
 const buildDefaultDescription = (jobTitle = '') => {
   return [
@@ -66,6 +68,14 @@ const normalizeDashedTextareaInput = (value) => String(value || '')
   })
   .join('\n');
 
+const normalizeBranchLabel = (value) => {
+  const cleaned = String(value || '').trim();
+  if (!cleaned) return '';
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1).toLowerCase();
+};
+
+const PRIORITIZED_BRANCHES = ['Manila', 'Cebu', 'Davao'];
+
 const JobPostings = () => {
   const API_BASE_URL = getApiBaseUrl();
 
@@ -92,6 +102,8 @@ const JobPostings = () => {
     department: '',
     contract_type: '',
     description: '',
+    max_applicants: '',
+    accepting_until: '',
     responsibilitiesText: '',
     qualificationsText: '',
     benefitsText: ''
@@ -103,14 +115,53 @@ const JobPostings = () => {
     branch: '',
     contract_type: 'Full-time',
     description: '',
+    max_applicants: '',
+    accepting_until: '',
     responsibilitiesText: '',
     qualificationsText: '',
     benefitsText: ''
   });
 
+  const todayDateOnly = () => new Date().toISOString().slice(0, 10);
+
+  const tomorrowDateOnly = () => {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().slice(0, 10);
+  };
+
+  const normalizeDateOnlyInput = (value) => {
+    const raw = String(value ?? '').trim();
+    if (!raw) return '';
+    return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : '';
+  };
+
+  const isFutureDateOnly = (value) => {
+    const normalized = normalizeDateOnlyInput(value);
+    if (!normalized) return false;
+    return normalized > todayDateOnly();
+  };
+
+  const normalizeMaxApplicantsInput = (value) => {
+    const raw = String(value ?? '').trim();
+    if (!raw) return '';
+    const parsed = Number.parseInt(raw, 10);
+    if (Number.isNaN(parsed) || parsed <= 0) return '';
+    return String(Math.min(parsed, MAX_APPLICANTS_CAP));
+  };
+
+  const toMaxApplicantsPayload = (value) => {
+    const raw = String(value ?? '').trim();
+    if (!raw) return null;
+    const parsed = Number.parseInt(raw, 10);
+    if (Number.isNaN(parsed) || parsed <= 0) return null;
+    return Math.min(parsed, MAX_APPLICANTS_CAP);
+  };
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDept, setSelectedDept] = useState('All Departments');
-  const [selectedBranch, setSelectedBranch] = useState('All Branches');
+  const [selectedBranch, setSelectedBranch] = useState('Manila');
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
@@ -192,14 +243,18 @@ const JobPostings = () => {
   }, [editableDepartments]);
 
   const allBranches = useMemo(() => {
-    const values = Array.from(new Set(jobs.map((job) => job.branch).filter(Boolean)));
-    return ['All Branches', ...values.sort((a, b) => a.localeCompare(b))];
+    const values = Array.from(
+      new Set(jobs.map((job) => normalizeBranchLabel(job.branch)).filter(Boolean))
+    );
+    const extras = values
+      .filter((branch) => !PRIORITIZED_BRANCHES.includes(branch))
+      .sort((a, b) => a.localeCompare(b));
+    return [...PRIORITIZED_BRANCHES, ...extras];
   }, [jobs]);
 
   const createBranches = useMemo(() => {
     const fallback = ['Manila', 'Cebu', 'Davao'];
-    const clean = allBranches.filter((b) => b !== 'All Branches');
-    return clean.length > 0 ? clean : fallback;
+    return allBranches.length > 0 ? allBranches : fallback;
   }, [allBranches]);
 
   const contractTypes = useMemo(() => {
@@ -212,10 +267,16 @@ const JobPostings = () => {
       const title = String(job.job_title || '').toLowerCase();
       const matchesSearch = title.includes(searchQuery.toLowerCase());
       const matchesDept = selectedDept === 'All Departments' || job.department === selectedDept;
-      const matchesBranch = selectedBranch === 'All Branches' || job.branch === selectedBranch;
+      const matchesBranch = !selectedBranch || normalizeBranchLabel(job.branch) === selectedBranch;
       return matchesSearch && matchesDept && matchesBranch;
     });
   }, [jobs, searchQuery, selectedDept, selectedBranch]);
+
+  useEffect(() => {
+    if (allBranches.length > 0 && !allBranches.includes(selectedBranch)) {
+      setSelectedBranch(allBranches[0]);
+    }
+  }, [allBranches, selectedBranch]);
 
   const totalPages = Math.max(1, Math.ceil(filteredJobs.length / itemsPerPage));
 
@@ -300,6 +361,8 @@ const JobPostings = () => {
         department: job.department || '',
         contract_type: job.contract_type || contractTypes[0] || 'Full-time',
         description: getDescriptionForJob(job),
+        max_applicants: normalizeMaxApplicantsInput(job.max_applicants),
+        accepting_until: normalizeDateOnlyInput(job.accepting_until),
         responsibilitiesText: arrayToLines(job.responsibilities),
         qualificationsText: arrayToLines(job.qualifications),
         benefitsText: arrayToLines(job.benefits)
@@ -313,6 +376,8 @@ const JobPostings = () => {
         branch: createBranches[0] || '',
         contract_type: contractTypes[0] || 'Full-time',
         description: '',
+        max_applicants: '',
+        accepting_until: '',
         responsibilitiesText: '',
         qualificationsText: '',
         benefitsText: ''
@@ -374,6 +439,8 @@ const JobPostings = () => {
         branch: createForm.branch,
         contract_type: createForm.contract_type,
         description: createForm.description || buildDefaultDescription(createForm.job_title),
+        max_applicants: toMaxApplicantsPayload(createForm.max_applicants),
+        accepting_until: normalizeDateOnlyInput(createForm.accepting_until) || null,
         responsibilities: linesToArray(withDashPrefixPerLine(createForm.responsibilitiesText)),
         qualifications: linesToArray(withDashPrefixPerLine(createForm.qualificationsText)),
         benefits: linesToArray(withDashPrefixPerLine(createForm.benefitsText))
@@ -391,7 +458,8 @@ const JobPostings = () => {
       fetchJobPostingsDashboard();
     } catch (err) {
       console.error('Failed to create job posting:', err);
-      alert('Failed to create job posting. Please try again.');
+      const apiError = err?.response?.data?.error;
+      alert(apiError ? `Failed to create job posting: ${apiError}` : 'Failed to create job posting. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -406,6 +474,8 @@ const JobPostings = () => {
         department: editForm.department,
         contract_type: editForm.contract_type,
         description: editForm.description,
+        max_applicants: toMaxApplicantsPayload(editForm.max_applicants),
+        accepting_until: normalizeDateOnlyInput(editForm.accepting_until) || null,
         responsibilities: linesToArray(withDashPrefixPerLine(editForm.responsibilitiesText)),
         qualifications: linesToArray(withDashPrefixPerLine(editForm.qualificationsText)),
         benefits: linesToArray(withDashPrefixPerLine(editForm.benefitsText))
@@ -418,6 +488,8 @@ const JobPostings = () => {
               department: editForm.department,
               contract_type: editForm.contract_type,
               description: editForm.description,
+              max_applicants: toMaxApplicantsPayload(editForm.max_applicants),
+              accepting_until: normalizeDateOnlyInput(editForm.accepting_until) || null,
               responsibilities: linesToArray(editForm.responsibilitiesText),
               qualifications: linesToArray(editForm.qualificationsText),
               benefits: linesToArray(editForm.benefitsText)
@@ -430,7 +502,8 @@ const JobPostings = () => {
       fetchJobPostingsDashboard();
     } catch (err) {
       console.error('Failed to update job posting:', err);
-      alert('Failed to update job posting. Please try again.');
+      const apiError = err?.response?.data?.error;
+      alert(apiError ? `Failed to update job posting: ${apiError}` : 'Failed to update job posting. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -634,14 +707,15 @@ const JobPostings = () => {
                         <td>
                           <div className="branch-cell">
                             <MapPin size={14} color="#94a3b8" />
-                            <span>{job.branch || 'N/A'}</span>
+                            <span>{normalizeBranchLabel(job.branch) || 'N/A'}</span>
                           </div>
                         </td>
                         <td><span className="type-badge">{job.contract_type || 'N/A'}</span></td>
                         <td>
                           <div className="applicant-cell">
                             <Users size={14} color="#5d9cec" />
-                            <strong>{job.total_applicants || 0}</strong> applicants
+                            <strong>{job.total_applicants || 0}</strong>
+                            {job.max_applicants ? ` / ${job.max_applicants}` : ''} applicants
                           </div>
                         </td>
                         <td>{formatDate(job.date_posted)}</td>
@@ -792,6 +866,33 @@ const JobPostings = () => {
                 />
               </div>
               <div className="form-group">
+                <label>Max Applicants (Optional)</label>
+                <input
+                  className="form-input"
+                  type="number"
+                  min="1"
+                  max={String(MAX_APPLICANTS_CAP)}
+                  value={createForm.max_applicants}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, max_applicants: normalizeMaxApplicantsInput(e.target.value) }))}
+                  placeholder="Leave blank for unlimited"
+                />
+              </div>
+              <div className="form-group">
+                <label>Accepting Applications Until (Optional)</label>
+                <DatePicker
+                  value={createForm.accepting_until}
+                  minDate={tomorrowDateOnly()}
+                  placeholder="Select closing date"
+                  onChange={(nextValue) => {
+                    const next = normalizeDateOnlyInput(nextValue);
+                    setCreateForm((prev) => ({ ...prev, accepting_until: next }));
+                  }}
+                />
+                {createForm.accepting_until && !isFutureDateOnly(createForm.accepting_until) && (
+                  <div className="form-hint error">Please choose a future date.</div>
+                )}
+              </div>
+              <div className="form-group">
                 <label>Job Description</label>
                 <input
                   className="form-input"
@@ -920,6 +1021,33 @@ const JobPostings = () => {
                   onChange={(nextValue) => setEditForm((prev) => ({ ...prev, contract_type: nextValue }))}
                   options={contractTypes}
                 />
+              </div>
+              <div className="form-group">
+                <label>Max Applicants (Optional)</label>
+                <input
+                  className="form-input"
+                  type="number"
+                  min="1"
+                  max={String(MAX_APPLICANTS_CAP)}
+                  value={editForm.max_applicants}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, max_applicants: normalizeMaxApplicantsInput(e.target.value) }))}
+                  placeholder="Leave blank for unlimited"
+                />
+              </div>
+              <div className="form-group">
+                <label>Accepting Applications Until (Optional)</label>
+                <DatePicker
+                  value={editForm.accepting_until}
+                  minDate={tomorrowDateOnly()}
+                  placeholder="Select closing date"
+                  onChange={(nextValue) => {
+                    const next = normalizeDateOnlyInput(nextValue);
+                    setEditForm((prev) => ({ ...prev, accepting_until: next }));
+                  }}
+                />
+                {editForm.accepting_until && !isFutureDateOnly(editForm.accepting_until) && (
+                  <div className="form-hint error">Please choose a future date.</div>
+                )}
               </div>
               <div className="form-group">
                 <label>Job Description</label>

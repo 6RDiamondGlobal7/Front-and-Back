@@ -28,6 +28,7 @@ const Schedules = () => {
   const [interviewSearchQuery, setInterviewSearchQuery] = useState('');
   const [interviewDateFilter, setInterviewDateFilter] = useState('');
   const [interviewBranchFilter, setInterviewBranchFilter] = useState('Manila');
+  const [interviewPositionFilter, setInterviewPositionFilter] = useState('All Positions');
   
   // Staged for Time Slot Assignment (Right Panel)
   const [stagedApplicants, setStagedApplicants] = useState([]);
@@ -78,6 +79,38 @@ const Schedules = () => {
     return cleaned ? cleaned.charAt(0).toUpperCase() + cleaned.slice(1) : '';
   };
 
+  const formatPositionApplied = (value) => {
+    if (!value || value === 'Not assigned' || value === 'Not specified') return value;
+    const roles = {
+      'corp-sec': 'Corporate Secretary',
+      'licensed-broker': 'Licensed Customs Broker',
+      'office-manager': 'Office Manager',
+      messenger: 'Messenger / Logistics',
+      secretary: 'Secretary to the Office Manager',
+      'brokerage-specialist': 'Brokerage Specialist',
+      'import-export-head': 'Import & Export Head',
+      'admin-staff': 'Administration Staff',
+      'doc-head': 'Documentation Head'
+    };
+    return roles[value] || String(value);
+  };
+
+  const getApplicantPositionLabel = (app) => {
+    const raw = String(app?.applicant?.position_applied || '').trim();
+    const normalized = formatPositionApplied(raw);
+    return normalized && normalized !== 'Not assigned' && normalized !== 'Not specified'
+      ? normalized
+      : 'Unspecified';
+  };
+
+  const normalizeApplicantPayload = (applicant) => {
+    if (!applicant || typeof applicant !== 'object') return applicant;
+    return {
+      ...applicant,
+      branch: normalizeBranch(applicant.branch)
+    };
+  };
+
   const handleBranchChange = (branch) => {
     const normalizedBranch = normalizeBranch(branch);
     setSelectedBranch(normalizedBranch);
@@ -98,25 +131,38 @@ const Schedules = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get(`${API_BASE_URL}/api/interviews/queue`);
+      const [queueResponse, applicantsResponse] = await Promise.all([
+        axios.get(`${API_BASE_URL}/api/interviews/queue`),
+        axios.get(`${API_BASE_URL}/api/applicants`)
+      ]);
+
+      const data = queueResponse?.data || {};
       const pendingData = Array.isArray(data?.pendingApplicants) ? data.pendingApplicants : [];
       const interviewData = Array.isArray(data?.scheduledApplicants) ? data.scheduledApplicants : [];
+      const applicantRows = Array.isArray(applicantsResponse?.data) ? applicantsResponse.data : [];
+      const applicantsById = applicantRows.reduce((acc, row) => {
+        const id = String(row?.id || '').trim();
+        if (id) acc[id] = row;
+        return acc;
+      }, {});
+
+      const hydrateApplicant = (item) => {
+        const applicantNo = String(item?.applicant_no || item?.applicantNo || '').trim();
+        const detailed = applicantsById[applicantNo] || null;
+        return {
+          ...item,
+          applicant: normalizeApplicantPayload({
+            ...(item?.applicant || {}),
+            ...(detailed || {})
+          })
+        };
+      };
 
       setPendingApplicants(
-        pendingData.map((item) => ({
-          ...item,
-          applicant: item.applicant
-            ? { ...item.applicant, branch: normalizeBranch(item.applicant.branch) }
-            : item.applicant
-        }))
+        pendingData.map(hydrateApplicant)
       );
       setScheduledApplicants(
-        interviewData.map((item) => ({
-          ...item,
-          applicant: item.applicant
-            ? { ...item.applicant, branch: normalizeBranch(item.applicant.branch) }
-            : item.applicant
-        }))
+        interviewData.map(hydrateApplicant)
       );
     } catch (error) {
       setToast({ open: true, tone: 'error', message: 'Failed to load interview queue.' });
@@ -292,6 +338,20 @@ const Schedules = () => {
     const matchesDate = !interviewDateFilter || scheduleDate === interviewDateFilter;
     const applicantBranch = normalizeBranch(app.applicant?.branch);
     const matchesBranch = applicantBranch === normalizeBranch(interviewBranchFilter);
+    const matchesPosition = interviewPositionFilter === 'All Positions'
+      ? true
+      : getApplicantPositionLabel(app) === interviewPositionFilter;
+    return matchesSearch && matchesDate && matchesBranch && matchesPosition;
+  });
+
+  const scheduledApplicantsSummaryBase = scheduledApplicants.filter((app) => {
+    const fullName = `${app.applicant?.first_name || ''} ${app.applicant?.last_name || ''}`.toLowerCase();
+    const applicantNo = String(app.applicant_no || '').toLowerCase();
+    const matchesSearch = !interviewSearchQuery || fullName.includes(interviewSearchQuery.toLowerCase()) || applicantNo.includes(interviewSearchQuery.toLowerCase());
+    const scheduleDate = app.schedule?.interview_schedule || '';
+    const matchesDate = !interviewDateFilter || scheduleDate === interviewDateFilter;
+    const applicantBranch = normalizeBranch(app.applicant?.branch);
+    const matchesBranch = applicantBranch === normalizeBranch(interviewBranchFilter);
     return matchesSearch && matchesDate && matchesBranch;
   });
 
@@ -301,6 +361,27 @@ const Schedules = () => {
     groups[date].push(app);
     return groups;
   }, {});
+
+  const summaryApplicants = interviewPositionFilter === 'All Positions'
+    ? scheduledApplicantsSummaryBase
+    : scheduledApplicantsSummaryBase.filter((app) => getApplicantPositionLabel(app) === interviewPositionFilter);
+
+  const groupedSummaryByDateAndPosition = summaryApplicants.reduce((acc, app) => {
+    const date = app.schedule?.interview_schedule || 'Unknown Date';
+    const position = getApplicantPositionLabel(app);
+    if (!acc[date]) acc[date] = {};
+    acc[date][position] = (acc[date][position] || 0) + 1;
+    return acc;
+  }, {});
+
+  const interviewPositionOptions = (() => {
+    const discovered = Array.from(new Set(
+      scheduledApplicantsSummaryBase
+        .map((app) => getApplicantPositionLabel(app))
+        .filter((pos) => Boolean(pos) && pos !== 'Unspecified')
+    )).sort((a, b) => a.localeCompare(b));
+    return ['All Positions', ...discovered];
+  })();
 
   // ================= VIEW: SET SCHEDULE =================
   const SetScheduleView = () => (
@@ -490,6 +571,16 @@ const Schedules = () => {
               ]}
             />
           </div>
+          <div className="interview-position-filter">
+            <CustomSelect
+              className="schedule-select"
+              icon={<Briefcase size={18} />}
+              value={interviewPositionFilter}
+              onChange={setInterviewPositionFilter}
+              placeholder="Filter by Position"
+              options={interviewPositionOptions.map((opt) => ({ value: opt, label: opt }))}
+            />
+          </div>
           <div className="interview-date-filter">
             <DatePicker
               value={interviewDateFilter}
@@ -522,6 +613,22 @@ const Schedules = () => {
                 <div>
                   <h4>{formatDateForDisplay(date)}</h4>
                   <p>{filteredGroupedScheduled[date].length} interviews scheduled</p>
+                </div>
+                <div className="date-group-summary" aria-label="Daily summary by position">
+                  {Object.entries(groupedSummaryByDateAndPosition[date] || {})
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([position, count]) => (
+                      <button
+                        key={`${date}-${position}`}
+                        type="button"
+                        className={`date-summary-chip ${interviewPositionFilter === position ? 'active' : ''}`}
+                        onClick={() => setInterviewPositionFilter(position)}
+                        title="Filter by this position"
+                      >
+                        <span className="date-summary-chip-label">{position}</span>
+                        <span className="date-summary-chip-count">{count}</span>
+                      </button>
+                    ))}
                 </div>
               </div>
               

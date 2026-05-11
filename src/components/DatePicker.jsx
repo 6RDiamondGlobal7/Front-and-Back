@@ -28,12 +28,19 @@ const formatPrettyDate = (value) => {
   return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 };
 
-const DatePicker = ({ value, onChange, placeholder = 'Select date', disabled = false }) => {
+const DatePicker = ({ value, onChange, placeholder = 'Select date', disabled = false, minDate }) => {
   const selectedDate = parseValueToDate(value);
-  const today = useMemo(() => {
+  const minSelectableDate = useMemo(() => {
+    if (minDate) {
+      const parsed = minDate instanceof Date
+        ? new Date(minDate.getFullYear(), minDate.getMonth(), minDate.getDate())
+        : parseValueToDate(minDate);
+      if (parsed && !Number.isNaN(parsed.getTime())) return parsed;
+    }
+
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  }, []);
+  }, [minDate]);
   const [isOpen, setIsOpen] = useState(false);
   const [viewDate, setViewDate] = useState(selectedDate || new Date());
   const rootRef = useRef(null);
@@ -70,15 +77,15 @@ const DatePicker = ({ value, onChange, placeholder = 'Select date', disabled = f
   }, [viewDate]);
 
   const selectedValue = selectedDate ? formatDateValue(selectedDate) : null;
-  const todayValue = formatDateValue(today);
-  const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const minValue = formatDateValue(minSelectableDate);
+  const currentMonthStart = new Date(minSelectableDate.getFullYear(), minSelectableDate.getMonth(), 1);
   const canGoToPreviousMonth = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1) > currentMonthStart;
   const yearOptions = useMemo(() => (
-    Array.from({ length: 16 }, (_, index) => today.getFullYear() + index).map((year) => ({
+    Array.from({ length: 16 }, (_, index) => minSelectableDate.getFullYear() + index).map((year) => ({
       value: year,
       label: String(year)
     }))
-  ), [today]);
+  ), [minSelectableDate]);
   const monthOptions = monthNames.map((name, index) => ({ value: index, label: name }));
 
   return (
@@ -135,14 +142,14 @@ const DatePicker = ({ value, onChange, placeholder = 'Select date', disabled = f
 
               const currentValue = formatDateValue(day);
               const isSelected = currentValue === selectedValue;
-              const isToday = currentValue === todayValue;
-              const isPast = day < today;
+              const isMinDate = currentValue === minValue;
+              const isPast = day < minSelectableDate;
 
               return (
                 <button
                   key={currentValue}
                   type="button"
-                  className={`date-picker-day ${isSelected ? 'selected' : ''} ${isToday ? 'today' : ''} ${isPast ? 'disabled' : ''}`}
+                  className={`date-picker-day ${isSelected ? 'selected' : ''} ${isMinDate ? 'today' : ''} ${isPast ? 'disabled' : ''}`}
                   disabled={isPast}
                   onClick={() => {
                     if (isPast) return;

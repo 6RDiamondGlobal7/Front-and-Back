@@ -503,6 +503,16 @@
   font-weight: 700;
 }
 
+.form-hint {
+  margin-top: 8px;
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.form-hint.error {
+  color: #b91c1c;
+}
+
 .form-input,
 .form-select {
   width: 100%;

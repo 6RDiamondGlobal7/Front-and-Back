@@ -17,7 +17,7 @@ const ConfirmationModal = ({
 }) => {
   if (!isOpen) return null;
 
-  const Icon = CustomIcon || (tone === 'success' ? CheckCircle2 : AlertTriangle);
+  const Icon = CustomIcon || ((tone === 'success' || tone === 'interview') ? CheckCircle2 : AlertTriangle);
 
   return (
     <div className="confirmation-modal-backdrop" onClick={onCancel}>

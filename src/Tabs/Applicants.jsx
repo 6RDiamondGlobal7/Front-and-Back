@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import {
   Briefcase,
@@ -22,6 +22,9 @@ import { getApiBaseUrl } from '../config/api';
 import ConfirmationModal from '../components/ConfirmationModal';
 import CustomSelect from '../components/CustomSelect';
 
+const PRIORITIZED_BRANCHES = ['Manila', 'Cebu', 'Davao'];
+const APPLICATION_ACTIVE_WINDOW_DAYS = 90;
+
 const Applicants = () => {
   const API_BASE_URL = getApiBaseUrl();
   const [applicants, setApplicants] = useState([]);
@@ -29,7 +32,7 @@ const Applicants = () => {
   const [selectedApplicant, setSelectedApplicant] = useState(null);
   const [statusFilter, setStatusFilter] = useState('All');
   const [positionFilter, setPositionFilter] = useState('All Positions');
-  const [branchFilter, setBranchFilter] = useState('All Branches');
+  const [branchFilter, setBranchFilter] = useState('Manila');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [confirmAction, setConfirmAction] = useState(null);
@@ -69,6 +72,48 @@ const Applicants = () => {
       day: '2-digit',
       year: 'numeric'
     });
+  };
+
+  const getApplicationDate = (app) => {
+    const rawValue = app?.created_at || app?.application_date || app?.date_applied || app?.updated_at;
+    if (!rawValue) return null;
+    const parsed = new Date(rawValue);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed;
+  };
+
+  const formatPolicyDate = (value) => {
+    if (!value) return 'N/A';
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  };
+
+  const buildApplicationDuration = (app) => {
+    const appliedAt = getApplicationDate(app);
+    if (!appliedAt) {
+      return {
+        appliedLabel: 'N/A',
+        activeUntilLabel: 'N/A',
+        daysRemainingLabel: 'N/A',
+        isExpired: false
+      };
+    }
+
+    const activeUntil = new Date(appliedAt);
+    activeUntil.setDate(activeUntil.getDate() + APPLICATION_ACTIVE_WINDOW_DAYS);
+
+    const now = new Date();
+    const msPerDay = 24 * 60 * 60 * 1000;
+    const daysRemaining = Math.ceil((activeUntil.getTime() - now.getTime()) / msPerDay);
+    const clampedRemaining = Math.max(0, Math.min(APPLICATION_ACTIVE_WINDOW_DAYS, daysRemaining));
+
+    return {
+      appliedLabel: formatPolicyDate(appliedAt),
+      activeUntilLabel: formatPolicyDate(activeUntil),
+      daysRemainingLabel: `${clampedRemaining} / ${APPLICATION_ACTIVE_WINDOW_DAYS} days`,
+      isExpired: clampedRemaining <= 0
+    };
   };
 
   const fetchApplicants = async () => {
@@ -113,7 +158,21 @@ const Applicants = () => {
   );
 
   const positions = ['All Positions', ...new Set(applicants.map((item) => item.position).filter(isSelectableFilterValue))];
-  const branches = ['All Branches', ...new Set(applicants.map((item) => item.branch).filter(isSelectableFilterValue))];
+  const branches = useMemo(() => {
+    const discoveredBranches = Array.from(
+      new Set(applicants.map((item) => item.branch).filter(isSelectableFilterValue))
+    );
+    const extras = discoveredBranches
+      .filter((branch) => !PRIORITIZED_BRANCHES.includes(branch))
+      .sort((a, b) => a.localeCompare(b));
+    return [...PRIORITIZED_BRANCHES, ...extras];
+  }, [applicants]);
+
+  useEffect(() => {
+    if (branches.length > 0 && !branches.includes(branchFilter)) {
+      setBranchFilter(branches[0]);
+    }
+  }, [branches, branchFilter]);
 
   const filteredData = applicants.filter((app) => {
     const appStatus = String(app.status || '').toLowerCase();
@@ -121,7 +180,7 @@ const Applicants = () => {
     const appId = String(app.id || '').toLowerCase();
     const matchesStatus = statusFilter === 'All' || appStatus === statusFilter.toLowerCase();
     const matchesPosition = positionFilter === 'All Positions' || app.position === positionFilter;
-    const matchesBranch = branchFilter === 'All Branches' || app.branch === branchFilter;
+    const matchesBranch = !branchFilter || app.branch === branchFilter;
     const matchesSearch = appName.includes(searchQuery.toLowerCase()) || appId.includes(searchQuery.toLowerCase());
 
     return matchesStatus && matchesPosition && matchesBranch && matchesSearch;
@@ -227,7 +286,7 @@ const Applicants = () => {
         })}
       </div>
 
-      <div className="filters-card">
+      <div className="applicants-filters-card">
         <div className="search-wrapper">
           <Search className="search-icon" size={18} />
           <input
@@ -401,6 +460,31 @@ const Applicants = () => {
                   <FileText className="app-section-icon" size={20} />
                   <span className="app-section-title">Personal Information</span>
                 </div>
+                {(() => {
+                  const duration = buildApplicationDuration(selectedApplicant);
+                  return (
+                    <div className="app-duration-card" aria-label="Application duration policy">
+                      <div className="app-duration-head">
+                        <span className="app-duration-title">Application Duration</span>
+                        <span className="app-duration-badge">{APPLICATION_ACTIVE_WINDOW_DAYS} days</span>
+                      </div>
+                      <div className={`app-duration-grid ${duration.isExpired ? 'expired' : ''}`}>
+                        <div className="app-duration-item">
+                          <span className="app-duration-label">Application Date</span>
+                          <span className="app-duration-value">{duration.appliedLabel}</span>
+                        </div>
+                        <div className="app-duration-item">
+                          <span className="app-duration-label">Active Until</span>
+                          <span className="app-duration-value">{duration.activeUntilLabel}</span>
+                        </div>
+                        <div className="app-duration-item app-duration-item-wide">
+                          <span className="app-duration-label">Remaining Window</span>
+                          <span className="app-duration-value">{duration.daysRemainingLabel}{duration.isExpired ? ' (Expired)' : ''}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div className="app-info-grid">
                   <div className="app-info-item"><span className="app-info-label">First Name</span><span className="app-info-value">{selectedApplicant.firstName || 'N/A'}</span></div>
                   <div className="app-info-item"><span className="app-info-label">Middle Initial</span><span className="app-info-value">{selectedApplicant.middleInitial || 'N/A'}</span></div>
