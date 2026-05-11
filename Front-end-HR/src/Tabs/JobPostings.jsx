@@ -23,6 +23,7 @@ import './JobPostings.css';
 import CustomSelect from '../components/CustomSelect';
 
 const DEFAULT_CONTRACT_TYPES = ['Full-time', 'Part-time', 'Contract', 'Internship'];
+const MAX_APPLICANTS_CAP = 10000;
 
 const buildDefaultDescription = (jobTitle = '') => {
   return [
@@ -100,6 +101,7 @@ const JobPostings = () => {
     department: '',
     contract_type: '',
     description: '',
+    max_applicants: '',
     responsibilitiesText: '',
     qualificationsText: '',
     benefitsText: ''
@@ -111,10 +113,27 @@ const JobPostings = () => {
     branch: '',
     contract_type: 'Full-time',
     description: '',
+    max_applicants: '',
     responsibilitiesText: '',
     qualificationsText: '',
     benefitsText: ''
   });
+
+  const normalizeMaxApplicantsInput = (value) => {
+    const raw = String(value ?? '').trim();
+    if (!raw) return '';
+    const parsed = Number.parseInt(raw, 10);
+    if (Number.isNaN(parsed) || parsed <= 0) return '';
+    return String(Math.min(parsed, MAX_APPLICANTS_CAP));
+  };
+
+  const toMaxApplicantsPayload = (value) => {
+    const raw = String(value ?? '').trim();
+    if (!raw) return null;
+    const parsed = Number.parseInt(raw, 10);
+    if (Number.isNaN(parsed) || parsed <= 0) return null;
+    return Math.min(parsed, MAX_APPLICANTS_CAP);
+  };
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDept, setSelectedDept] = useState('All Departments');
@@ -318,6 +337,7 @@ const JobPostings = () => {
         department: job.department || '',
         contract_type: job.contract_type || contractTypes[0] || 'Full-time',
         description: getDescriptionForJob(job),
+        max_applicants: normalizeMaxApplicantsInput(job.max_applicants),
         responsibilitiesText: arrayToLines(job.responsibilities),
         qualificationsText: arrayToLines(job.qualifications),
         benefitsText: arrayToLines(job.benefits)
@@ -331,6 +351,7 @@ const JobPostings = () => {
         branch: createBranches[0] || '',
         contract_type: contractTypes[0] || 'Full-time',
         description: '',
+        max_applicants: '',
         responsibilitiesText: '',
         qualificationsText: '',
         benefitsText: ''
@@ -392,6 +413,7 @@ const JobPostings = () => {
         branch: createForm.branch,
         contract_type: createForm.contract_type,
         description: createForm.description || buildDefaultDescription(createForm.job_title),
+        max_applicants: toMaxApplicantsPayload(createForm.max_applicants),
         responsibilities: linesToArray(withDashPrefixPerLine(createForm.responsibilitiesText)),
         qualifications: linesToArray(withDashPrefixPerLine(createForm.qualificationsText)),
         benefits: linesToArray(withDashPrefixPerLine(createForm.benefitsText))
@@ -424,6 +446,7 @@ const JobPostings = () => {
         department: editForm.department,
         contract_type: editForm.contract_type,
         description: editForm.description,
+        max_applicants: toMaxApplicantsPayload(editForm.max_applicants),
         responsibilities: linesToArray(withDashPrefixPerLine(editForm.responsibilitiesText)),
         qualifications: linesToArray(withDashPrefixPerLine(editForm.qualificationsText)),
         benefits: linesToArray(withDashPrefixPerLine(editForm.benefitsText))
@@ -436,6 +459,7 @@ const JobPostings = () => {
               department: editForm.department,
               contract_type: editForm.contract_type,
               description: editForm.description,
+              max_applicants: toMaxApplicantsPayload(editForm.max_applicants),
               responsibilities: linesToArray(editForm.responsibilitiesText),
               qualifications: linesToArray(editForm.qualificationsText),
               benefits: linesToArray(editForm.benefitsText)
@@ -659,7 +683,8 @@ const JobPostings = () => {
                         <td>
                           <div className="applicant-cell">
                             <Users size={14} color="#5d9cec" />
-                            <strong>{job.total_applicants || 0}</strong> applicants
+                            <strong>{job.total_applicants || 0}</strong>
+                            {job.max_applicants ? ` / ${job.max_applicants}` : ''} applicants
                           </div>
                         </td>
                         <td>{formatDate(job.date_posted)}</td>
@@ -810,6 +835,18 @@ const JobPostings = () => {
                 />
               </div>
               <div className="form-group">
+                <label>Max Applicants (Optional)</label>
+                <input
+                  className="form-input"
+                  type="number"
+                  min="1"
+                  max={String(MAX_APPLICANTS_CAP)}
+                  value={createForm.max_applicants}
+                  onChange={(e) => setCreateForm((prev) => ({ ...prev, max_applicants: normalizeMaxApplicantsInput(e.target.value) }))}
+                  placeholder="Leave blank for unlimited"
+                />
+              </div>
+              <div className="form-group">
                 <label>Job Description</label>
                 <input
                   className="form-input"
@@ -937,6 +974,18 @@ const JobPostings = () => {
                   value={editForm.contract_type}
                   onChange={(nextValue) => setEditForm((prev) => ({ ...prev, contract_type: nextValue }))}
                   options={contractTypes}
+                />
+              </div>
+              <div className="form-group">
+                <label>Max Applicants (Optional)</label>
+                <input
+                  className="form-input"
+                  type="number"
+                  min="1"
+                  max={String(MAX_APPLICANTS_CAP)}
+                  value={editForm.max_applicants}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, max_applicants: normalizeMaxApplicantsInput(e.target.value) }))}
+                  placeholder="Leave blank for unlimited"
                 />
               </div>
               <div className="form-group">

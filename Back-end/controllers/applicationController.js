@@ -196,6 +196,46 @@ const TITLE_TO_ROLE_IDS = Object.entries(ROLE_ID_TO_TITLE).reduce((acc, [roleId,
 
 const isJobActive = (status) => status === true || status === 'true' || status === 'Open' || status === 'Active';
 
+const normalizeMaxApplicants = (value) => {
+    if (value === null || value === undefined) return null;
+    const parsed = Number.parseInt(String(value).trim(), 10);
+    if (Number.isNaN(parsed) || parsed <= 0) return null;
+    return parsed;
+};
+
+const isMissingColumnError = (error, columnName) => {
+    const msg = String(error?.message || '').toLowerCase();
+    const needle = `column ${String(columnName || '').toLowerCase()} does not exist`;
+    return Boolean(columnName) && msg.includes(needle);
+};
+
+const getApplicantJobId = (applicantRow) => {
+    const fact = applicantRow?.applicantfacttable;
+    if (Array.isArray(fact) && fact.length > 0 && fact[0]?.job_id) return fact[0].job_id;
+    return applicantRow?.job_id || null;
+};
+
+const ensureAutoCloseForJobs = async (jobsWithCounts) => {
+    const toCloseIds = (jobsWithCounts || [])
+        .filter((job) => {
+            const limit = normalizeMaxApplicants(job?.max_applicants);
+            if (!limit) return false;
+            const count = Number(job?.total_applicants || 0);
+            return isJobActive(job?.job_status) && count >= limit;
+        })
+        .map((job) => job?.job_id)
+        .filter(Boolean);
+
+    if (toCloseIds.length === 0) return;
+
+    // Best-effort: if the schema doesn't include this column or update fails, don't break reads.
+    try {
+        await supabase.from('jobpostings').update({ job_status: false }).in('job_id', toCloseIds);
+    } catch (err) {
+        // ignore
+    }
+};
+
 const parseViewTimestamp = (eventId) => {
     const match = String(eventId || '').match(/^VIEW-(\d+)/);
     if (!match) return Number.NaN;
@@ -271,7 +311,9 @@ const buildJobPostingsSnapshot = async () => {
     const { data: jobs, error: jobsError } = await supabase.from('jobpostings').select('*').order('date_posted', { ascending: false });
     if (jobsError) throw jobsError;
 
-    const { data: applicants, error: applicantsError } = await supabase.from('applicant').select('applicant_no, position_applied, branch');
+    const { data: applicants, error: applicantsError } = await supabase
+        .from('applicant')
+        .select('applicant_no, position_applied, branch, applicantfacttable (job_id)');
     if (applicantsError) throw applicantsError;
 
     const { data: viewEvents, error: viewEventsError } = await supabase
@@ -279,10 +321,31 @@ const buildJobPostingsSnapshot = async () => {
         .select('event_id, created_at');
     if (viewEventsError) throw viewEventsError;
 
+    const applicantsList = applicants || [];
+
     const jobsWithCounts = (jobs || []).map((job) => {
-        const applicantCount = (applicants || []).filter((applicant) => applicantMatchesJob(applicant, job)).length;
-        return enrichJobPosting({ ...job, total_applicants: applicantCount });
+        const limit = normalizeMaxApplicants(job?.max_applicants);
+        const hasLimit = Boolean(limit);
+
+        const countByJobId = applicantsList.filter((applicant) => (
+            String(getApplicantJobId(applicant) || '').trim() === String(job?.job_id || '').trim()
+        )).length;
+
+        const fallbackCount = applicantsList.filter((applicant) => applicantMatchesJob(applicant, job)).length;
+        const applicantCount = countByJobId > 0 ? countByJobId : fallbackCount;
+
+        const isFull = hasLimit && applicantCount >= limit;
+        const jobStatus = isFull ? false : job?.job_status;
+
+        return enrichJobPosting({
+            ...job,
+            job_status: jobStatus,
+            total_applicants: applicantCount,
+            is_full: isFull
+        });
     });
+
+    await ensureAutoCloseForJobs(jobsWithCounts);
 
     const activeJobPosts = jobsWithCounts.filter((job) => isJobActive(job.job_status)).length;
     const totalApplications = (applicants || []).length;
@@ -849,10 +912,10 @@ exports.recordSiteView = async (req, res) => {
 };
 
 exports.createJobPosting = async (req, res) => {
-    const { job_title, department, contract_type, branch, description, responsibilities, qualifications, benefits } = req.body || {};
+    const { job_title, department, contract_type, branch, description, responsibilities, qualifications, benefits, max_applicants } = req.body || {};
     const normalizedDescription = String(description || '').trim();
     try {
-        const { data, error } = await supabase.from('jobpostings').insert([{
+        const basePayload = {
             job_title,
             department,
             contract_type,
@@ -864,9 +927,27 @@ exports.createJobPosting = async (req, res) => {
             date_posted: new Date().toISOString().slice(0, 10),
             job_status: true,
             total_applicants: 0
-        }]).select().single();
-        if (error) throw error;
-        res.status(201).json({ message: 'Created successfully', job: data });
+        };
+
+        const maxApplicants = normalizeMaxApplicants(max_applicants);
+        if (maxApplicants) {
+            basePayload.max_applicants = maxApplicants;
+        }
+
+        let created = null;
+        const { data, error } = await supabase.from('jobpostings').insert([basePayload]).select().single();
+        if (!error) created = data;
+
+        if (error && isMissingColumnError(error, 'max_applicants')) {
+            delete basePayload.max_applicants;
+            const retry = await supabase.from('jobpostings').insert([basePayload]).select().single();
+            if (retry.error) throw retry.error;
+            created = retry.data;
+        } else if (error) {
+            throw error;
+        }
+
+        res.status(201).json({ message: 'Created successfully', job: created });
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
@@ -880,9 +961,27 @@ exports.updateJobPosting = async (req, res) => {
             payload.description = normalizedDescription || null;
         }
 
+        if (Object.prototype.hasOwnProperty.call(payload, 'max_applicants')) {
+            const normalized = normalizeMaxApplicants(payload.max_applicants);
+            payload.max_applicants = normalized;
+        }
+
         const { data, error } = await supabase.from('jobpostings').update(payload).eq('job_id', req.params.id).select().single();
-        if (error) throw error;
-        res.json({ message: 'Updated successfully', job: data });
+        if (!error) {
+            res.json({ message: 'Updated successfully', job: data });
+            return;
+        }
+
+        if (isMissingColumnError(error, 'max_applicants') && Object.prototype.hasOwnProperty.call(payload, 'max_applicants')) {
+            const retryPayload = { ...payload };
+            delete retryPayload.max_applicants;
+            const retry = await supabase.from('jobpostings').update(retryPayload).eq('job_id', req.params.id).select().single();
+            if (retry.error) throw retry.error;
+            res.json({ message: 'Updated successfully', job: retry.data });
+            return;
+        }
+
+        throw error;
     } catch (err) { res.status(500).json({ error: err.message }); }
 };
 
@@ -914,6 +1013,38 @@ exports.submitApplication = async (req, res) => {
     } = req.body;
 
     try {
+        const resolvedJobIdPre = await resolveJobPostingId({ jobId, positionApplied, branch });
+        if (resolvedJobIdPre) {
+            const { data: jobRow, error: jobError } = await supabase
+                .from('jobpostings')
+                .select('job_id, job_title, job_status, max_applicants')
+                .eq('job_id', resolvedJobIdPre)
+                .maybeSingle();
+
+            if (jobError) throw jobError;
+
+            const limit = normalizeMaxApplicants(jobRow?.max_applicants);
+            if (limit) {
+                const { count, error: countError } = await supabase
+                    .from('applicantfacttable')
+                    .select('job_id', { count: 'exact', head: true })
+                    .eq('job_id', resolvedJobIdPre);
+                if (countError) throw countError;
+
+                const total = Number(count || 0);
+                const isClosed = !isJobActive(jobRow?.job_status) || total >= limit;
+                if (isClosed) {
+                    // Ensure we reflect closure going forward.
+                    try { await supabase.from('jobpostings').update({ job_status: false }).eq('job_id', resolvedJobIdPre); } catch {}
+                    return res.status(409).json({
+                        error: `This job posting is closed and no longer accepting applications.`,
+                        jobId: resolvedJobIdPre,
+                        jobTitle: jobRow?.job_title || null
+                    });
+                }
+            }
+        }
+
         // <-- Updated to use the secure password generator -->
         const tempPassword = generateSecurePassword(10); 
         const fullName = `${firstName} ${lastName}`.trim();
@@ -963,7 +1094,7 @@ exports.submitApplication = async (req, res) => {
         }]).select().single();
 
         if (!statusError && newStatus) {
-            const resolvedJobId = await resolveJobPostingId({ jobId, positionApplied, branch });
+            const resolvedJobId = resolvedJobIdPre || await resolveJobPostingId({ jobId, positionApplied, branch });
             const factPayload = { applicant_no: applicantNo, status_id: newStatus.status_id };
             if (documentId) {
                 factPayload.document_id = documentId;
@@ -972,6 +1103,31 @@ exports.submitApplication = async (req, res) => {
                 factPayload.job_id = resolvedJobId;
             }
             await supabase.from('applicantfacttable').insert([factPayload]);
+
+            if (resolvedJobId) {
+                // Best-effort auto-close after this application is recorded.
+                try {
+                    const { data: jobRow } = await supabase
+                        .from('jobpostings')
+                        .select('job_status, max_applicants')
+                        .eq('job_id', resolvedJobId)
+                        .maybeSingle();
+
+                    const limit = normalizeMaxApplicants(jobRow?.max_applicants);
+                    if (limit && isJobActive(jobRow?.job_status)) {
+                        const { count } = await supabase
+                            .from('applicantfacttable')
+                            .select('job_id', { count: 'exact', head: true })
+                            .eq('job_id', resolvedJobId);
+
+                        if (Number(count || 0) >= limit) {
+                            await supabase.from('jobpostings').update({ job_status: false }).eq('job_id', resolvedJobId);
+                        }
+                    }
+                } catch {
+                    // ignore auto-close failures
+                }
+            }
         }
 
         // D. Send the Automated Email
