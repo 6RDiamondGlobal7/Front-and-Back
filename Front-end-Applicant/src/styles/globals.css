@@ -1,0 +1,37 @@
+/* === RESET & BASE STYLES === */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Arial', 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  background-color: white;
+  color: #333333;
+  line-height: 1.6;
+}
+
+/* === UTILITY CLASSES === */
+.text-center { text-align: center; }
+.font-bold { font-weight: bold; }
+.flex { display: flex; }
+.items-center { align-items: center; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.mx-auto { margin-left: auto; margin-right: auto; }
+
+/* === COLORS === */
+:root {
+  --color-primary: #0066cc;
+  --color-primary-dark: #0052a3;
+  --color-white: #ffffff;
+  --color-black: #000000;
+  --color-gray-light: #f8f9fa;
+  --color-gray: #666666;
+  --color-gray-border: #e0e0e0;
+}
