@@ -85,6 +85,199 @@ const FormSelect = ({ name, value, options, onChange, placeholder, disabled = fa
   );
 };
 
+const nationalities = [
+  'Afghan',
+  'Albanian',
+  'Algerian',
+  'American',
+  'Andorran',
+  'Angolan',
+  'Antiguan or Barbudan',
+  'Argentine',
+  'Armenian',
+  'Australian',
+  'Austrian',
+  'Azerbaijani',
+  'Bahamian',
+  'Bahraini',
+  'Bangladeshi',
+  'Barbadian',
+  'Belarusian',
+  'Belgian',
+  'Belizean',
+  'Beninese',
+  'Bhutanese',
+  'Bolivian',
+  'Bosnian or Herzegovinian',
+  'Botswanan',
+  'Brazilian',
+  'British',
+  'Bruneian',
+  'Bulgarian',
+  'Burkinabe',
+  'Burundian',
+  'Cabo Verdean',
+  'Cambodian',
+  'Cameroonian',
+  'Canadian',
+  'Central African',
+  'Chadian',
+  'Chilean',
+  'Chinese',
+  'Colombian',
+  'Comoran',
+  'Congolese',
+  'Costa Rican',
+  'Croatian',
+  'Cuban',
+  'Cypriot',
+  'Czech',
+  'Danish',
+  'Djiboutian',
+  'Dominican',
+  'Dutch',
+  'East Timorese',
+  'Ecuadorian',
+  'Egyptian',
+  'Emirati',
+  'Equatorial Guinean',
+  'Eritrean',
+  'Estonian',
+  'Eswatini',
+  'Ethiopian',
+  'Fijian',
+  'Filipino',
+  'Finnish',
+  'French',
+  'Gabonese',
+  'Gambian',
+  'Georgian',
+  'German',
+  'Ghanaian',
+  'Greek',
+  'Grenadian',
+  'Guatemalan',
+  'Guinean',
+  'Guyanese',
+  'Haitian',
+  'Honduran',
+  'Hungarian',
+  'Icelandic',
+  'Indian',
+  'Indonesian',
+  'Iranian',
+  'Iraqi',
+  'Irish',
+  'Israeli',
+  'Italian',
+  'Ivorian',
+  'Jamaican',
+  'Japanese',
+  'Jordanian',
+  'Kazakhstani',
+  'Kenyan',
+  'Kiribati',
+  'Kuwaiti',
+  'Kyrgyzstani',
+  'Lao',
+  'Latvian',
+  'Lebanese',
+  'Liberian',
+  'Libyan',
+  'Liechtensteiner',
+  'Lithuanian',
+  'Luxembourgish',
+  'Madagascan',
+  'Malawian',
+  'Malaysian',
+  'Maldivian',
+  'Malian',
+  'Maltese',
+  'Marshallese',
+  'Mauritanian',
+  'Mauritian',
+  'Mexican',
+  'Micronesian',
+  'Moldovan',
+  'Monegasque',
+  'Mongolian',
+  'Montenegrin',
+  'Moroccan',
+  'Mozambican',
+  'Myanmar',
+  'Namibian',
+  'Nauruan',
+  'Nepalese',
+  'New Zealander',
+  'Nicaraguan',
+  'Nigerian',
+  'Nigerien',
+  'North Korean',
+  'North Macedonian',
+  'Norwegian',
+  'Omani',
+  'Pakistani',
+  'Palauan',
+  'Palestinian',
+  'Panamanian',
+  'Papua New Guinean',
+  'Paraguayan',
+  'Peruvian',
+  'Polish',
+  'Portuguese',
+  'Qatari',
+  'Romanian',
+  'Russian',
+  'Rwandan',
+  'Saint Lucian',
+  'Salvadoran',
+  'Samoan',
+  'San Marinese',
+  'Sao Tomean',
+  'Saudi Arabian',
+  'Senegalese',
+  'Serbian',
+  'Seychellois',
+  'Sierra Leonean',
+  'Singaporean',
+  'Slovak',
+  'Slovenian',
+  'Solomon Islander',
+  'Somali',
+  'South African',
+  'South Korean',
+  'South Sudanese',
+  'Spanish',
+  'Sri Lankan',
+  'Sudanese',
+  'Surinamese',
+  'Swedish',
+  'Swiss',
+  'Syrian',
+  'Taiwanese',
+  'Tajikistani',
+  'Tanzanian',
+  'Thai',
+  'Togolese',
+  'Tongan',
+  'Trinidadian or Tobagonian',
+  'Tunisian',
+  'Turkish',
+  'Turkmen',
+  'Tuvaluan',
+  'Ugandan',
+  'Ukrainian',
+  'Uruguayan',
+  'Uzbekistani',
+  'Vanuatuan',
+  'Vatican',
+  'Venezuelan',
+  'Vietnamese',
+  'Yemeni',
+  'Zambian',
+  'Zimbabwean'
+];
+
 /* --- CUSTOM DATE PICKER --- */
 const CustomDatePicker = ({ value, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -206,7 +399,7 @@ const ApplicationForm = () => {
 
   const [formData, setFormData] = useState(() => ({
     firstName: '', lastName: '', middleInitial: '', suffix: '',
-    nationality: '', birthday: '', age: '', email: '', contactNumber: '',
+    nationality: '', birthday: '', age: '', email: '', contactNumber: '', landlineNumber: '',
     region: '', province: '', city: '', barangay: '', detailedAddress: '',
     resume: null, coverLetter: null, prcId: null, medicalCondition: null, medicalDetails: '',
     ...(initialFormData || {})
@@ -412,6 +605,11 @@ const ApplicationForm = () => {
         setFormData(prev => ({ ...prev, [name]: numericValue }));
         if (numericValue.length === 11 && numericValue.startsWith('0')) setContactError(false);
       }
+    } else if (name === 'landlineNumber') {
+      const numericValue = value.replace(/\D/g, '');
+      if (numericValue.length <= 10) {
+        setFormData(prev => ({ ...prev, [name]: numericValue }));
+      }
     } else if (name === 'middleInitial') {
       setFormData(prev => ({ ...prev, middleInitial: sanitizeMiddleInitial(value) }));
     } else if (name === 'region') {
@@ -537,19 +735,32 @@ const ApplicationForm = () => {
               <div className="af-group"><label className="af-label">Last Name <span className="req">*</span></label><input type="text" name="lastName" className="af-input" placeholder="e.g., Dela Cruz" value={formData.lastName} onChange={handleChange} /></div>
               <div className="af-group"><label className="af-label">Middle Initial (Optional)</label><input type="text" name="middleInitial" className="af-input" placeholder="e.g., PA" value={formData.middleInitial} onChange={handleChange} maxLength={2} /></div>
               <div className="af-group"><label className="af-label">Suffix (Optional)</label><input type="text" name="suffix" className="af-input" placeholder="e.g., Jr., III" value={formData.suffix} onChange={handleChange} /></div>
-              <div className="af-group"><label className="af-label">Nationality <span className="req">*</span></label><input type="text" name="nationality" className="af-input" placeholder="e.g., Filipino" value={formData.nationality} onChange={handleChange} /></div>
+              <div className="af-group">
+                <label className="af-label">Nationality <span className="req">*</span></label>
+                <FormSelect
+                  name="nationality"
+                  value={formData.nationality}
+                  options={nationalities}
+                  onChange={handleChange}
+                  placeholder="Select Nationality"
+                />
+              </div>
               <div className="af-group">
                 <label className="af-label">Birthday <span className="req">*</span></label>
                 <CustomDatePicker value={formData.birthday} onChange={handleChange} />
               </div>
               <div className="af-group">
-                <label className="af-label">Age <span className="req">*</span></label>
+                <label className="af-label">Age</label>
                 <input type="text" className={`af-input disabled ${ageError ? 'input-error' : ''}`} value={ageError && formData.age ? "Invalid Age" : formData.age} placeholder="Auto-calculated" readOnly />
               </div>
               <div className="af-group"><label className="af-label">Email Address <span className="req">*</span></label><input type="email" name="email" className="af-input" placeholder="e.g., juan.delacruz@email.com" value={formData.email} onChange={handleChange} /></div>
               <div className="af-group full-width-mobile">
                 <label className="af-label">Contact Number <span className="req">*</span></label>
                 <input type="text" name="contactNumber" className={`af-input ${contactError ? 'input-error' : ''}`} placeholder="e.g., 09171234567" value={formData.contactNumber} onChange={handleChange} />
+              </div>
+              <div className="af-group full-width-mobile">
+                <label className="af-label">Landline Number (Optional)</label>
+                <input type="text" name="landlineNumber" className="af-input" placeholder="e.g., 0281234567" value={formData.landlineNumber} onChange={handleChange} />
               </div>
             </div>
             <h3 className="af-section-title"><span className="af-dot">•</span> Address</h3>
@@ -625,12 +836,12 @@ const ApplicationForm = () => {
               </div>
             </div>
             <div className="af-upload-section">
-              <label className="af-label">Cover Letter (Optional)</label>
+              <label className="af-label">Application Letter (Optional)</label>
               <input type="file" ref={coverInputRef} style={{ display: 'none' }} accept=".pdf" onChange={(e) => handleFileChange(e, 'coverLetter')} />
               <div className={`af-upload-box ${formData.coverLetter ? 'uploaded' : ''}`} onClick={() => handleFileClick(coverInputRef)}>
-                {formData.coverLetter ? <><IconCheckCircle /><span className="af-file-name">{formData.coverLetter.name}</span></> : <><IconUpload /><span>Click to upload cover letter (optional)</span></>}
+                {formData.coverLetter ? <><IconCheckCircle /><span className="af-file-name">{formData.coverLetter.name}</span></> : <><IconUpload /><span>Click to upload application letter (optional)</span></>}
               </div>
-              <div className="af-note-box"><p><strong>File name format:</strong> FirstName_LastName_CoverLetter.pdf</p></div>
+              <div className="af-note-box"><p><strong>File name format:</strong> FirstName_LastName_ApplicationLetter.pdf</p></div>
             </div>
             
             <h3 className="af-section-title" style={{marginTop: '40px'}}><span className="af-dot">•</span> Medical Condition Declaration</h3>
@@ -687,6 +898,7 @@ const ApplicationForm = () => {
                         <div className="af-sample-field"><label>Age</label><div className="af-input sample">30</div></div>
                         <div className="af-sample-field"><label>Email Address</label><div className="af-input sample">juan.delacruz@email.com</div></div>
                         <div className="af-sample-field"><label>Contact Number</label><div className="af-input sample">09171234567</div></div>
+                        <div className="af-sample-field"><label>Landline Number (Optional)</label><div className="af-input sample">0281234567</div></div>
                     </div>
                 </div>
                 <div className="af-sample-section af-sample-section-green">
@@ -703,7 +915,7 @@ const ApplicationForm = () => {
                     <h4 className="af-sample-header" style={{color: '#1A242F'}}>• Required Documents</h4>
                     <div className="af-sample-field"><label>Resume/CV (PDF format)</label><div className="af-input sample file-look"><IconFile /> Juan_DelaCruz_Resume.pdf</div></div>
                     <div className="af-sample-field"><label>PRC ID (Front & Back - PDF/Image)</label><div className="af-input sample file-look"><IconFile /> Juan_DelaCruz_PRCID.pdf</div></div>
-                    <div className="af-sample-field"><label>Cover Letter (Optional - PDF format)</label><div className="af-input sample file-look"><IconFile /> Juan_DelaCruz_CoverLetter.pdf</div></div>
+                    <div className="af-sample-field"><label>Application Letter (Optional - PDF format)</label><div className="af-input sample file-look"><IconFile /> Juan_DelaCruz_ApplicationLetter.pdf</div></div>
                 </div>
                 <div className="af-sample-section af-sample-section-purple">
                     <h4 className="af-sample-header" style={{color: '#1A242F'}}>• Medical Condition Declaration</h4>

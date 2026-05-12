@@ -68,6 +68,11 @@
   color: #8648ef;
 }
 
+.metric-card.soft-yellow .metric-icon {
+  background: #fff7df;
+  color: #d89012;
+}
+
 .metric-card.soft-green .metric-icon,
 .trend-icon {
   background: #e8fbef;
@@ -155,6 +160,28 @@
   cursor: not-allowed;
 }
 
+.report-filter-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(240px, 1fr));
+  gap: 14px;
+  padding: 0 12px 4px;
+}
+
+.report-filter-group {
+  display: grid;
+  gap: 8px;
+}
+
+.report-filter-group label {
+  color: var(--hr-muted);
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.report-filter-select {
+  width: 100%;
+}
+
 .report-state {
   padding: 14px 16px;
   border-radius: 16px;
@@ -173,7 +200,7 @@
 
 .metrics-row {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -203,6 +230,11 @@
 .soft-purple {
   background: #f7f1ff;
   border-color: #dcc9fa;
+}
+
+.soft-yellow {
+  background: #fff8e8;
+  border-color: #f2d48c;
 }
 
 .soft-green {
@@ -283,6 +315,7 @@
 @media (max-width: 760px) {
   .dashboard-header,
   .config-form,
+  .report-filter-strip,
   .metrics-row,
   .rate-breakdown-grid {
     grid-template-columns: 1fr;

@@ -690,13 +690,14 @@ exports.getInterviewQueue = async (req, res) => {
                     nationality,
                     email,
                     contact_number,
+                    landline_number,
                     region,
                     province,
                     city_municipality,
                     barangay,
                     detailed_address,
                     resume_url,
-                    cover_letter_url,
+                    application_letter_url,
                     medical_condition,
                     medical_details,
                     position_applied,
@@ -1061,7 +1062,7 @@ exports.submitApplication = async (req, res) => {
     const files = req.files || {};
     const {
         firstName, lastName, middleInitial, suffix, nationality, birthday, age, 
-        email, contactNumber, region, province, city, barangay, detailedAddress,
+        email, contactNumber, landlineNumber, region, province, city, barangay, detailedAddress,
         medicalCondition, medicalDetails, branch, positionApplied, jobId
     } = req.body;
 
@@ -1112,11 +1113,12 @@ exports.submitApplication = async (req, res) => {
         const fullName = `${firstName} ${lastName}`.trim();
 
         const resumeUrl = await uploadFileToSupabase(files['resume']);
-        const coverLetterUrl = await uploadFileToSupabase(files['coverLetter']);
+        const applicationLetterUrl = await uploadFileToSupabase(files['coverLetter']);
         const prcIdUrl = await uploadFileToSupabase(files['prcId']);
 
         const cleanAge = parseInt(age) || 0; 
         const cleanContact = contactNumber ? contactNumber.replace(/\D/g, '') : null;
+        const cleanLandline = landlineNumber ? landlineNumber.replace(/\D/g, '') : null;
         const cleanMiddleInitial = middleInitial
             ? middleInitial.replace(/[^a-zA-Z]/g, '').toUpperCase().slice(0, 2)
             : null;
@@ -1125,9 +1127,9 @@ exports.submitApplication = async (req, res) => {
         const { data: createdApplicant, error: appError } = await supabase.from('applicant').insert([{ 
             password: tempPassword, first_name: firstName, last_name: lastName,
             middle_initial: cleanMiddleInitial, suffix: suffix ? suffix.substring(0, 10) : null,
-            nationality, birthday, age: cleanAge, email, contact_number: cleanContact,
+            nationality, birthday, age: cleanAge, email, contact_number: cleanContact, landline_number: cleanLandline,
             region, province, city_municipality: city, barangay, detailed_address: detailedAddress,
-            resume_url: resumeUrl, cover_letter_url: coverLetterUrl, prc_id_url: prcIdUrl,
+            resume_url: resumeUrl, application_letter_url: applicationLetterUrl, prc_id_url: prcIdUrl,
             medical_condition: medicalCondition || 'no', medical_details: medicalDetails || null,
             branch: branch || 'Not specified', position_applied: positionApplied || 'Not specified'
         }]).select('applicant_no').single();
@@ -1141,7 +1143,7 @@ exports.submitApplication = async (req, res) => {
             .insert([{
                 applicant_no: applicantNo,
                 resume: Boolean(resumeUrl),
-                cover_letter: Boolean(coverLetterUrl),
+                application_letter: Boolean(applicationLetterUrl),
                 prc_id_url: Boolean(prcIdUrl),
                 medical_condition: medicalCondition || 'no'
             }])
@@ -1252,8 +1254,9 @@ exports.getApplicants = async (req, res) => {
             id: app.applicant_no || 'N/A', name: `${app.first_name || ''} ${app.last_name || ''}`.trim(),
             firstName: app.first_name, lastName: app.last_name, middleInitial: app.middle_initial,
             nationality: app.nationality, birthday: app.birthday, age: app.age, email: app.email || 'N/A', phone: app.contact_number || 'N/A',
+            landlineNumber: app.landline_number || 'N/A',
             region: app.region, province: app.province, city: app.city_municipality, barangay: app.barangay,
-            detailedAddress: app.detailed_address, resume_url: app.resume_url, cover_letter_url: app.cover_letter_url,
+            detailedAddress: app.detailed_address, resume_url: app.resume_url, application_letter_url: app.application_letter_url,
             medicalCondition: app.medical_condition, medicalDetails: app.medical_details,
             status: extractApplicantStatus(app), branch: app.branch || 'Not assigned', position: app.position_applied || 'Not assigned'
         })));
@@ -1288,7 +1291,7 @@ exports.getReports = async (req, res) => {
 
         res.json({
             meta: { reportType: period.reportType, label: period.label, dateRange: { from: period.startDate, to: period.endDate }, filter: { ...period.filter, branch: hasBranchFilter ? selectedBranch : 'all' } },
-            summary: { totalApplications: total, newApplications: statusBreakdown.Applied, interviewCount: statusBreakdown.Interview, hiredCount: statusBreakdown.Hired, rejectedCount: statusBreakdown.Rejected, interviewRate: percentage(statusBreakdown.Interview, total), hiringRate: percentage(statusBreakdown.Hired, total), rejectionRate: percentage(statusBreakdown.Rejected, total) },
+            summary: { totalApplications: total, newApplications: statusBreakdown.Applied, inProcessCount: statusBreakdown.Applied, interviewCount: statusBreakdown.Interview, hiredCount: statusBreakdown.Hired, rejectedCount: statusBreakdown.Rejected, interviewRate: percentage(statusBreakdown.Interview, total), hiringRate: percentage(statusBreakdown.Hired, total), rejectionRate: percentage(statusBreakdown.Rejected, total) },
             statusBreakdown, records
         });
     } catch (err) { res.status(500).json({ error: err.message }); }

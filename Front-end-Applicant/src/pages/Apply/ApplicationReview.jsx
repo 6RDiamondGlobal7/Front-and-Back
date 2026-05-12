@@ -72,6 +72,7 @@ const ApplicationReview = () => {
     dataToSend.append('age', formData.age || '');
     dataToSend.append('email', formData.email || '');
     dataToSend.append('contactNumber', formData.contactNumber || '');
+    dataToSend.append('landlineNumber', formData.landlineNumber || '');
     dataToSend.append('region', formData.region || '');
     dataToSend.append('province', formData.province || '');
     dataToSend.append('city', formData.city || '');
@@ -150,6 +151,7 @@ const ApplicationReview = () => {
                 <div className="af-review-item"><label className="af-review-label-bold">AGE</label><span>{formData.age || 'N/A'}</span></div>
                 <div className="af-review-item"><label className="af-review-label-bold">EMAIL</label><span>{formData.email || 'N/A'}</span></div>
                 <div className="af-review-item"><label className="af-review-label-bold">PHONE</label><span>{formData.contactNumber || 'N/A'}</span></div>
+                <div className="af-review-item"><label className="af-review-label-bold">LANDLINE</label><span>{formData.landlineNumber || 'N/A'}</span></div>
             </div>
         </div>
 
@@ -263,6 +265,7 @@ const ApplicationReview = () => {
                   <div className="af-sample-field"><label>Age</label><div className="af-input sample">30</div></div>
                   <div className="af-sample-field"><label>Email Address</label><div className="af-input sample">juan.delacruz@email.com</div></div>
                   <div className="af-sample-field"><label>Contact Number</label><div className="af-input sample">09171234567</div></div>
+                  <div className="af-sample-field"><label>Landline Number (Optional)</label><div className="af-input sample">0281234567</div></div>
                 </div>
               </div>
               <div className="af-sample-section af-sample-section-green">
@@ -279,7 +282,7 @@ const ApplicationReview = () => {
                 <h4 className="af-sample-header" style={{ color: '#1A242F' }}>• Required Documents</h4>
                 <div className="af-sample-field"><label>Resume/CV (PDF format)</label><div className="af-input sample file-look"><IconFile /> Juan_DelaCruz_Resume.pdf</div></div>
                 <div className="af-sample-field"><label>PRC ID (Front & Back - PDF/Image)</label><div className="af-input sample file-look"><IconFile /> Juan_DelaCruz_PRCID.pdf</div></div>
-                <div className="af-sample-field"><label>Cover Letter (Optional - PDF format)</label><div className="af-input sample file-look"><IconFile /> Juan_DelaCruz_CoverLetter.pdf</div></div>
+                <div className="af-sample-field"><label>Application Letter (Optional - PDF format)</label><div className="af-input sample file-look"><IconFile /> Juan_DelaCruz_ApplicationLetter.pdf</div></div>
               </div>
               <div className="af-sample-section af-sample-section-purple">
                 <h4 className="af-sample-header" style={{ color: '#1A242F' }}>• Medical Condition Declaration</h4>

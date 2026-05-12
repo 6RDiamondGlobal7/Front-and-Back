@@ -768,7 +768,8 @@ const Schedules = () => {
                   <div className="info-block"><label>Age</label><p>{viewApplicantModal.applicant?.age}</p></div>
                   <div className="info-block"><label>Nationality</label><p>{viewApplicantModal.applicant?.nationality}</p></div>
                   <div className="info-block"><label>Email</label><p>{viewApplicantModal.applicant?.email}</p></div>
-                  <div className="info-block"><label>Phone</label><p>{viewApplicantModal.applicant?.contact_number}</p></div>
+                  <div className="info-block"><label>Phone</label><p>{viewApplicantModal.applicant?.contact_number || 'N/A'}</p></div>
+                  <div className="info-block"><label>Landline Number</label><p>{viewApplicantModal.applicant?.landline_number || 'N/A'}</p></div>
                   <div className="info-block"><label>Branch</label><p>{viewApplicantModal.applicant?.branch}</p></div>
                   <div className="info-block"><label>Position Applied</label><p>{viewApplicantModal.applicant?.position_applied}</p></div>
                 </div>

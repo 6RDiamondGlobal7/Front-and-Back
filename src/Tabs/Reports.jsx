@@ -21,6 +21,92 @@ const quarterOptions = [
 
 const formatPercent = (value) => `${Number(value || 0).toFixed(1)}%`;
 
+const applicationStatusOptions = [
+  { value: 'all', label: 'All applications' },
+  { value: 'Applied', label: 'In Process' },
+  { value: 'Interview', label: 'Interview' },
+  { value: 'Hired', label: 'Hired' },
+  { value: 'Rejected', label: 'Rejected' }
+];
+
+const getStatusKey = (status) => {
+  const clean = String(status || '').trim().toLowerCase();
+  if (clean === 'applied' || clean === 'in process') return 'Applied';
+  if (clean === 'interview') return 'Interview';
+  if (clean === 'hired') return 'Hired';
+  if (clean === 'rejected') return 'Rejected';
+  return 'Applied';
+};
+
+const getDisplayStatus = (status) => (
+  getStatusKey(status) === 'Applied' ? 'In Process' : getStatusKey(status)
+);
+
+const formatRoleName = (role) => {
+  const raw = String(role || '').trim();
+  if (!raw) return 'Not assigned';
+
+  const roles = {
+    'corp-sec': 'Corporate Secretary',
+    'corporate-secretary': 'Corporate Secretary',
+    'licensed-broker': 'Licensed Customs Broker',
+    'office-manager': 'Office Manager',
+    messenger: 'Messenger / Logistics',
+    'messenger-logistics': 'Messenger / Logistics',
+    secretary: 'Secretary to the Office Manager',
+    'secretary-to-the-office-manager': 'Secretary to the Office Manager',
+    'brokerage-specialist': 'Brokerage Specialist',
+    'import-export-head': 'Import & Export Head',
+    'admin-staff': 'Administration Staff',
+    'doc-head': 'Documentation Head',
+    'docs-head': 'Documentation Head',
+    'documentation-head': 'Documentation Head'
+  };
+
+  const normalized = raw.toLowerCase().replace(/[_\s/]+/g, '-');
+  if (roles[normalized]) return roles[normalized];
+
+  return raw
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .map((word) => {
+      const lower = word.toLowerCase();
+      if (['hr', 'prc', 'id'].includes(lower)) return lower.toUpperCase();
+      if (lower === 'and') return 'and';
+      if (lower === 'to') return 'to';
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join(' ');
+};
+
+const calculateReportSummary = (records) => {
+  const statusBreakdown = records.reduce((acc, row) => {
+    const key = getStatusKey(row.status);
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, { Applied: 0, Interview: 0, Hired: 0, Rejected: 0 });
+
+  const totalApplications = records.length;
+  const percentage = (count) => totalApplications > 0 ? (Number(count || 0) / totalApplications) * 100 : 0;
+
+  return {
+    summary: {
+      totalApplications,
+      newApplications: statusBreakdown.Applied,
+      inProcessCount: statusBreakdown.Applied,
+      interviewCount: statusBreakdown.Interview,
+      hiredCount: statusBreakdown.Hired,
+      rejectedCount: statusBreakdown.Rejected,
+      interviewRate: percentage(statusBreakdown.Interview),
+      hiringRate: percentage(statusBreakdown.Hired),
+      rejectionRate: percentage(statusBreakdown.Rejected)
+    },
+    statusBreakdown
+  };
+};
+
 const padDatePart = (value) => String(value).padStart(2, '0');
 
 const formatRangeDate = (date) => (
@@ -58,6 +144,8 @@ const Reports = () => {
   const [quarter, setQuarter] = useState(currentQuarter);
   const [year, setYear] = useState(currentYear);
   const [branch, setBranch] = useState('all');
+  const [applicationStatusFilter, setApplicationStatusFilter] = useState('all');
+  const [roleFilter, setRoleFilter] = useState('all');
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -105,23 +193,58 @@ const Reports = () => {
     fetchReports();
   }, [API_BASE_URL, requestParams]);
 
-  const summary = reportData?.summary || {
+  const reportRecords = reportData?.records || [];
+
+  const roleOptions = useMemo(() => {
+    const roles = Array.from(new Set(
+      reportRecords
+        .map((row) => String(row.position || '').trim())
+        .filter(Boolean)
+    )).sort((a, b) => a.localeCompare(b));
+
+    return [
+      { value: 'all', label: 'All roles' },
+      ...roles.map((role) => ({ value: role, label: formatRoleName(role) }))
+    ];
+  }, [reportRecords]);
+
+  useEffect(() => {
+    if (!roleOptions.some((option) => option.value === roleFilter)) {
+      setRoleFilter('all');
+    }
+  }, [roleOptions, roleFilter]);
+
+  const filteredRecords = useMemo(() => (
+    reportRecords.filter((row) => {
+      const matchesStatus = applicationStatusFilter === 'all' || getStatusKey(row.status) === applicationStatusFilter;
+      const matchesRole = roleFilter === 'all' || row.position === roleFilter;
+      return matchesStatus && matchesRole;
+    })
+  ), [reportRecords, applicationStatusFilter, roleFilter]);
+
+  const filteredReport = useMemo(() => calculateReportSummary(filteredRecords), [filteredRecords]);
+
+  const summary = reportData ? filteredReport.summary : {
     totalApplications: 0,
     newApplications: 0,
     interviewCount: 0,
     hiredCount: 0,
     rejectedCount: 0,
+    inProcessCount: 0,
     interviewRate: 0,
     hiringRate: 0,
     rejectionRate: 0
   };
 
-  const statusBreakdown = reportData?.statusBreakdown || {
+  const statusBreakdown = reportData ? filteredReport.statusBreakdown : {
     Applied: 0,
     Interview: 0,
     Hired: 0,
     Rejected: 0
   };
+  const inProcessCount = summary.inProcessCount ?? summary.newApplications ?? statusBreakdown.Applied ?? 0;
+  const selectedStatusLabel = applicationStatusOptions.find((option) => option.value === applicationStatusFilter)?.label || 'All applications';
+  const selectedRoleLabel = roleOptions.find((option) => option.value === roleFilter)?.label || 'All roles';
 
   const displayPeriodRange = getDisplayPeriodRange({ reportType, month, quarter, year });
 
@@ -163,13 +286,15 @@ const Reports = () => {
       doc.setFontSize(10);
       doc.text(`Period: ${rangeText}`, 36, 124);
       doc.text(`Branch: ${selectedBranchLabel}`, 36, 138);
+      doc.text(`Application Status: ${selectedStatusLabel}`, 36, 152);
+      doc.text(`Role / Position: ${selectedRoleLabel}`, 36, 166);
 
       autoTable(doc, {
-        startY: 156,
+        startY: 184,
         head: [['Metric', 'Value']],
         body: [
           ['Total Applications', String(summary.totalApplications)],
-          ['New Applications', String(summary.newApplications)],
+          ['In Process', String(inProcessCount)],
           ['Interview', String(summary.interviewCount)],
           ['Hired', String(summary.hiredCount)],
           ['Rejected', String(summary.rejectedCount)],
@@ -186,7 +311,7 @@ const Reports = () => {
         startY: doc.lastAutoTable.finalY + 18,
         head: [['Status', 'Count']],
         body: [
-          ['Applied', String(statusBreakdown.Applied || 0)],
+          ['In Process', String(statusBreakdown.Applied || 0)],
           ['Interview', String(statusBreakdown.Interview || 0)],
           ['Hired', String(statusBreakdown.Hired || 0)],
           ['Rejected', String(statusBreakdown.Rejected || 0)]
@@ -196,18 +321,18 @@ const Reports = () => {
         styles: { fontSize: 10 }
       });
 
-      const detailRows = (reportData.records || []).map((row) => [
+      const detailRows = filteredRecords.map((row) => [
         row.id,
         row.name,
-        row.status,
-        row.position,
+        getDisplayStatus(row.status),
+        formatRoleName(row.position),
         row.branch,
         row.date
       ]);
 
       autoTable(doc, {
         startY: doc.lastAutoTable.finalY + 18,
-        head: [['Applicant #', 'Name', 'Status', 'Position', 'Branch', 'Applied Date']],
+        head: [['Applicant #', 'Name', 'Status', 'Position', 'Branch', 'Date of Application']],
         body: detailRows.length > 0 ? detailRows : [['-', 'No records found for selected filter', '-', '-', '-', '-']],
         theme: 'striped',
         headStyles: { fillColor: brandBlue },
@@ -314,6 +439,27 @@ const Reports = () => {
           </button>
         </div>
 
+        <div className="report-filter-strip">
+          <div className="report-filter-group">
+            <label>Application Status</label>
+            <CustomSelect
+              options={applicationStatusOptions}
+              value={applicationStatusFilter}
+              onChange={setApplicationStatusFilter}
+              className="report-filter-select"
+            />
+          </div>
+          <div className="report-filter-group">
+            <label>Role / Position</label>
+            <CustomSelect
+              options={roleOptions}
+              value={roleFilter}
+              onChange={setRoleFilter}
+              className="report-filter-select"
+            />
+          </div>
+        </div>
+
         {loading && <div className="report-state loading">Loading report...</div>}
         {!loading && error && <div className="report-state error">{error}</div>}
 
@@ -324,6 +470,11 @@ const Reports = () => {
                 <div className="metric-icon"><FileText size={18} /></div>
                 <p>Total Applications</p>
                 <h4>{summary.totalApplications}</h4>
+              </div>
+              <div className="metric-card soft-yellow">
+                <div className="metric-icon"><CalendarRange size={18} /></div>
+                <p>In Process</p>
+                <h4>{inProcessCount}</h4>
               </div>
               <div className="metric-card soft-purple">
                 <div className="metric-icon"><Users size={18} /></div>

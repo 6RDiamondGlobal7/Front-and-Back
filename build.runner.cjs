@@ -159,6 +159,43 @@ function assertHostedApi(hrDir) {
   }
 }
 
+function assertBackendEnv(backendDir) {
+  const envPath = path.join(backendDir, '.env');
+  const requiredKeys = [
+    'SUPABASE_URL',
+    'SUPABASE_ANON_KEY',
+    'EMAIL_USER',
+    'EMAIL_PASS',
+  ];
+
+  const missing = requiredKeys.filter((key) => {
+    const fromProcess = String(process.env[key] || '').trim();
+    const fromFile = readEnvVarFromFile(envPath, key);
+    return !fromProcess && !fromFile;
+  });
+
+  if (missing.length > 0) {
+    fail(
+      `Missing Back-end environment value(s): ${missing.join(', ')}. ` +
+      `Set them in ${envPath} or export them in your shell before running this build.`
+    );
+  }
+}
+
+function assertNodeSyntax(filePath, label) {
+  log('INFO', `Checking ${label} syntax...`);
+  const code = run('node', ['--check', filePath], { cwd: ROOT_DIR });
+  if (code !== 0) fail(`${label} syntax check failed.`);
+}
+
+function logDatabaseMigrationReminder() {
+  log('INFO', 'Supabase schema expected by this build:');
+  log('INFO', '  public.applicant.landline_number');
+  log('INFO', '  public.applicant.application_letter_url');
+  log('INFO', '  public.document.application_letter');
+  log('INFO', 'If any are missing, run the SQL migrations before using submission/report features.');
+}
+
 function removeLegacyArtifacts(hrDir) {
   const releaseDir = path.join(hrDir, 'release');
   if (!exists(releaseDir)) return;
@@ -198,6 +235,8 @@ function removeLegacyArtifacts(hrDir) {
   }
 
   assertHostedApi(hrDir);
+  assertBackendEnv(backendDir);
+  logDatabaseMigrationReminder();
 
   if (exists(unpackedDir)) {
     log('INFO', 'Preparing clean release folder...');
@@ -213,6 +252,8 @@ function removeLegacyArtifacts(hrDir) {
   }
 
   installWithRecovery(backendDir, 'Back-end', ['install']);
+  assertNodeSyntax(path.join(backendDir, 'server.js'), 'Back-end server');
+  assertNodeSyntax(path.join(backendDir, 'controllers', 'applicationController.js'), 'Back-end application controller');
 
   installWithRecovery(
     hrDir,

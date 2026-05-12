@@ -25,6 +25,10 @@ import CustomSelect from '../components/CustomSelect';
 const PRIORITIZED_BRANCHES = ['Manila', 'Cebu', 'Davao'];
 const APPLICATION_ACTIVE_WINDOW_DAYS = 90;
 
+const getDisplayStatus = (status) => (
+  String(status || '').toLowerCase() === 'applied' ? 'In Process' : status
+);
+
 const Applicants = () => {
   const API_BASE_URL = getApiBaseUrl();
   const [applicants, setApplicants] = useState([]);
@@ -122,6 +126,8 @@ const Applicants = () => {
       const response = await axios.get(`${API_BASE_URL}/api/applicants`);
       const formattedData = response.data.map((app) => ({
         ...app,
+        landlineNumber: app.landlineNumber || app.landline_number || 'N/A',
+        application_letter_url: app.application_letter_url || app.cover_letter_url || '',
         branch: formatBranch(app.branch),
         position: formatPosition(app.position)
       }));
@@ -254,6 +260,14 @@ const Applicants = () => {
     return 'warning';
   };
 
+  const getApplicationLetterUrl = (applicant) => (
+    applicant?.application_letter_url || applicant?.cover_letter_url || ''
+  );
+
+  const getLandlineNumber = (applicant) => (
+    applicant?.landlineNumber || applicant?.landline_number || applicant?.landline || 'N/A'
+  );
+
   return (
     <div className="applicants-container">
       <div className="hr-page-heading">
@@ -266,18 +280,24 @@ const Applicants = () => {
       </div>
 
       <div className="top-tabs-card">
-        {['All', 'Applied', 'Interview', 'Hired', 'Rejected'].map((tab, index, array) => {
+        {[
+          { value: 'All', label: 'All' },
+          { value: 'Applied', label: 'In Process' },
+          { value: 'Interview', label: 'Interview' },
+          { value: 'Hired', label: 'Hired' },
+          { value: 'Rejected', label: 'Rejected' }
+        ].map((tab, index, array) => {
           const count = applicants.filter((a) => (
-            tab === 'All' ? true : String(a.status || '').toLowerCase() === tab.toLowerCase()
+            tab.value === 'All' ? true : String(a.status || '').toLowerCase() === tab.value.toLowerCase()
           )).length;
 
           return (
-            <React.Fragment key={tab}>
+            <React.Fragment key={tab.value}>
               <button
-                className={`tab-btn ${statusFilter === tab ? 'active' : ''}`}
-                onClick={() => updateStatus(tab)}
+                className={`tab-btn ${statusFilter === tab.value ? 'active' : ''}`}
+                onClick={() => updateStatus(tab.value)}
               >
-                {tab}
+                {tab.label}
                 <span className="tab-count">({count})</span>
               </button>
               {index < array.length - 1 && <span className="tab-divider">|</span>}
@@ -345,8 +365,8 @@ const Applicants = () => {
                 </th>
                 <th>Contact</th>
                 <th>
-                  <button type="button" className="sortable-header" onClick={() => handleSort('appliedDate')} aria-label={getSortLabel('appliedDate', 'Applied Date')}>
-                    <span>Applied Date</span>
+                  <button type="button" className="sortable-header" onClick={() => handleSort('appliedDate')} aria-label={getSortLabel('appliedDate', 'Date of Application')}>
+                    <span>Date of Application</span>
                     <ChevronsUpDown size={14} className={`sort-icon ${sortConfig.key === 'appliedDate' ? 'active' : ''}`} />
                   </button>
                 </th>
@@ -377,7 +397,7 @@ const Applicants = () => {
                     <td>{formatAppliedDate(app)}</td>
                     <td>
                       <span className={`status-pill ${String(app.status || '').toLowerCase()}`}>
-                        {app.status}
+                        {getDisplayStatus(app.status)}
                       </span>
                     </td>
                     <td>{app.position}</td>
@@ -495,6 +515,7 @@ const Applicants = () => {
                   <div className="app-info-item"><span className="app-info-label">Email</span><span className="app-info-value">{selectedApplicant.email || 'N/A'}</span></div>
                   <div className="app-info-item"><span className="app-info-label">Phone</span><span className="app-info-value">{selectedApplicant.phone || 'N/A'}</span></div>
                   <div className="app-info-item"><span className="app-info-label">Branch</span><span className="app-info-value">{selectedApplicant.branch || 'N/A'}</span></div>
+                  <div className="app-info-item"><span className="app-info-label">Landline Number</span><span className="app-info-value">{getLandlineNumber(selectedApplicant)}</span></div>
                   <div className="app-info-item"><span className="app-info-label">Position Applied</span><span className="app-info-value">{selectedApplicant.position || 'N/A'}</span></div>
                 </div>
 
@@ -536,27 +557,27 @@ const Applicants = () => {
                     </div>
                   ) : <p className="no-data modal-text-helper">No Resume Uploaded</p>}
 
-                  {selectedApplicant.cover_letter_url ? (
+                  {getApplicationLetterUrl(selectedApplicant) ? (
                     <div className="app-doc-card">
                       <div className="app-doc-info">
                         <div className="app-doc-icon-box"><FileText size={24} strokeWidth={1.5} /></div>
                         <div className="app-doc-details">
-                          <span className="app-doc-type">Cover Letter</span>
-                          <span className="app-doc-name">{selectedApplicant.name.replace(/\s+/g, '_')}_CoverLetter.pdf</span>
+                          <span className="app-doc-type">Application Letter</span>
+                          <span className="app-doc-name">{selectedApplicant.name.replace(/\s+/g, '_')}_ApplicationLetter.pdf</span>
                         </div>
                       </div>
                       <div className="app-doc-actions">
-                        <button className="app-btn-doc" onClick={() => window.open(selectedApplicant.cover_letter_url, '_blank')}>
+                        <button className="app-btn-doc" onClick={() => window.open(getApplicationLetterUrl(selectedApplicant), '_blank')}>
                           <Eye size={16} /> View
                         </button>
-                        <a href={selectedApplicant.cover_letter_url} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+                        <a href={getApplicationLetterUrl(selectedApplicant)} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
                           <button className="app-btn-doc">
                             <Download size={16} /> Download
                           </button>
                         </a>
                       </div>
                     </div>
-                  ) : <p className="no-data modal-text-helper">No Cover Letter Uploaded</p>}
+                  ) : <p className="no-data modal-text-helper">No Application Letter Uploaded</p>}
                 </div>
               </section>
 
