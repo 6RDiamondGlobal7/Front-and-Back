@@ -16,6 +16,7 @@
   gap: 10px;
   cursor: pointer;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  min-width: 0;
 }
 
 .custom-select.open .custom-select-trigger {
@@ -38,6 +39,10 @@
   flex: 1;
   text-align: left;
   color: #8a9fbe;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .custom-select-value.filled {

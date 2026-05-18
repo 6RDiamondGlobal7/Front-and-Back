@@ -142,6 +142,12 @@
   min-width: 0;
 }
 
+.custom-dropdown-btn-main span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .custom-dropdown-chevron {
   color: #9aaec9;
   flex-shrink: 0;
@@ -169,6 +175,12 @@
   left: 0;
   right: 0;
   padding: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.role-filter-dropdown {
+  min-width: 240px;
 }
 
 .filter-drop-item {

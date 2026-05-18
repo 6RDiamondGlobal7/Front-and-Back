@@ -161,6 +161,7 @@ const JobPostings = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDept, setSelectedDept] = useState('All Departments');
   const [selectedBranch, setSelectedBranch] = useState('Manila');
+  const [selectedRole, setSelectedRole] = useState('All Positions');
 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
@@ -261,21 +262,62 @@ const JobPostings = () => {
     return Array.from(new Set([...DEFAULT_CONTRACT_TYPES, ...values]));
   }, [jobs]);
 
+  const roleOptions = useMemo(() => {
+    const baseJobs = jobs.filter((job) => {
+      const matchesDept = selectedDept === 'All Departments' || job.department === selectedDept;
+      const matchesBranch = !selectedBranch || normalizeBranchLabel(job.branch) === selectedBranch;
+      return matchesDept && matchesBranch;
+    });
+
+    const roleCounts = baseJobs.reduce((acc, job) => {
+      const title = String(job.job_title || '').trim();
+      if (!title) return acc;
+      acc[title] = (acc[title] || 0) + Number(job.total_applicants || 0);
+      return acc;
+    }, {});
+
+    const options = Object.entries(roleCounts)
+      .sort((a, b) => {
+        if (b[1] !== a[1]) return b[1] - a[1];
+        return a[0].localeCompare(b[0]);
+      })
+      .map(([title, count]) => ({
+        value: title,
+        label: `${title} (${count})`
+      }));
+
+    const totalApplicants = baseJobs.reduce((sum, job) => sum + Number(job.total_applicants || 0), 0);
+
+    return [
+      { value: 'All Positions', label: `All Positions (${totalApplicants})` },
+      ...options
+    ];
+  }, [jobs, selectedDept, selectedBranch]);
+
+  const selectedRoleLabel = roleOptions.find((option) => option.value === selectedRole)?.label || 'All Positions';
+
   const filteredJobs = useMemo(() => {
     return jobs.filter((job) => {
       const title = String(job.job_title || '').toLowerCase();
       const matchesSearch = title.includes(searchQuery.toLowerCase());
       const matchesDept = selectedDept === 'All Departments' || job.department === selectedDept;
       const matchesBranch = !selectedBranch || normalizeBranchLabel(job.branch) === selectedBranch;
-      return matchesSearch && matchesDept && matchesBranch;
+      const matchesRole = selectedRole === 'All Positions' || String(job.job_title || '').trim() === selectedRole;
+      return matchesSearch && matchesDept && matchesBranch && matchesRole;
     });
-  }, [jobs, searchQuery, selectedDept, selectedBranch]);
+  }, [jobs, searchQuery, selectedDept, selectedBranch, selectedRole]);
 
   useEffect(() => {
     if (allBranches.length > 0 && !allBranches.includes(selectedBranch)) {
       setSelectedBranch(allBranches[0]);
     }
   }, [allBranches, selectedBranch]);
+
+  useEffect(() => {
+    if (!roleOptions.some((option) => option.value === selectedRole)) {
+      setSelectedRole('All Positions');
+    }
+  }, [roleOptions, selectedRole]);
 
   const totalPages = Math.max(1, Math.ceil(filteredJobs.length / itemsPerPage));
 
@@ -286,7 +328,7 @@ const JobPostings = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedDept, selectedBranch]);
+  }, [searchQuery, selectedDept, selectedBranch, selectedRole]);
 
   useEffect(() => {
     if (currentPage > totalPages) setCurrentPage(totalPages);
@@ -333,6 +375,7 @@ const JobPostings = () => {
   const selectFilterOption = (type, value) => {
     if (type === 'dept') setSelectedDept(value);
     if (type === 'branch') setSelectedBranch(value);
+    if (type === 'role') setSelectedRole(value);
     setActiveFilterMenu(null);
   };
 
@@ -662,6 +705,29 @@ const JobPostings = () => {
                     onClick={() => selectFilterOption('branch', branch)}
                   >
                     {branch}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="custom-dropdown-container role-filter-dropdown">
+            <div className="custom-dropdown-btn" onClick={(e) => toggleFilterMenu(e, 'role')}>
+              <div className="custom-dropdown-btn-main">
+                <Briefcase size={14} style={{ color: '#94a3b8' }} />
+                <span>{selectedRoleLabel}</span>
+              </div>
+              <ChevronDown size={16} className={`custom-dropdown-chevron ${activeFilterMenu === 'role' ? 'open' : ''}`} />
+            </div>
+            {activeFilterMenu === 'role' && (
+              <div className="filter-drop-menu" onClick={(e) => e.stopPropagation()}>
+                {roleOptions.map((role) => (
+                  <div
+                    key={role.value}
+                    className={`filter-drop-item ${selectedRole === role.value ? 'selected' : ''}`}
+                    onClick={() => selectFilterOption('role', role.value)}
+                  >
+                    {role.label}
                   </div>
                 ))}
               </div>

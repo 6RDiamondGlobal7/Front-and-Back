@@ -20,6 +20,17 @@ const normalizeTitle = (value) => String(value || '')
 const normalizeDocHeadText = (value) =>
   String(value || '').replace(/\bDoc Head\b/gi, 'Documentation Head').replace(/\bDocumentations Head\b/gi, 'Documentation Head');
 
+const normalizeBranchText = (value) => String(value || '')
+  .toLowerCase()
+  .replace(/[^a-z]+/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim();
+
+const isAllBranchesValue = (value) => {
+  const normalized = normalizeBranchText(value);
+  return normalized === 'all branches' || normalized === 'all branch' || normalized === 'all';
+};
+
 const RoleDetails = () => {
   const navigate = useNavigate();
   const { branch, roleId } = useParams();
@@ -36,6 +47,7 @@ const RoleDetails = () => {
     'licensed-broker': 'Licensed Customs Broker',
     'office-manager': 'Office Manager',
     'messenger': 'Messenger / Logistics',
+    internship: 'Internship',
     'secretary': 'Secretary to the Office Manager',
     'brokerage-specialist': 'Brokerage Specialist',
     'import-export-head': 'Import & Export Head',
@@ -76,7 +88,10 @@ const RoleDetails = () => {
 
         const match = jobs.find((job) => (
           docHeadAliases.includes(normalizeTitle(job?.job_title)) &&
-          String(job?.branch || '').trim().toLowerCase() === branchKey &&
+          (
+            String(job?.branch || '').trim().toLowerCase() === branchKey ||
+            isAllBranchesValue(job?.branch)
+          ) &&
           (String(job?.description || '').trim() || normalizeList(job?.responsibilities).length > 0 || normalizeList(job?.qualifications).length > 0 || normalizeList(job?.benefits).length > 0)
         ));
 
@@ -168,6 +183,26 @@ const RoleDetails = () => {
           'Leave benefits'
         ]
       };
+    } else if (roleId === 'messenger' || roleId === 'internship') {
+      return {
+        title: roleId === 'internship' ? 'Internship' : 'Messenger / Logistics',
+        desc: 'Support day-to-day office and logistics tasks',
+        responsibilities: [
+          'Deliver documents and packages to clients and government agencies',
+          'Coordinate with clients for pickup and delivery schedules',
+          'Maintain accurate delivery records and logs'
+        ],
+        qualifications: [
+          'High school diploma or equivalent',
+          'Valid driver\'s license (preferred)',
+          'Familiarity with Metro Manila routes and locations'
+        ],
+        benefits: [
+          'Daily/Monthly compensation',
+          'Transportation allowance',
+          'Health insurance'
+        ]
+      };
     } else if (roleId === 'admin-staff') {
         return {
           title: 'Administration Staff',
@@ -187,10 +222,10 @@ const RoleDetails = () => {
             'Health insurance',
             'Training and mentorship'
           ]
-        };
+      };
     } else {
       return {
-        title: roleId ? roleId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Position Details',
+        title: roleIdToTitle[roleId] || (roleId ? roleId.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Position Details'),
         desc: 'Join our growing team and contribute to our logistics operations.',
         responsibilities: ['Perform duties as assigned', 'Collaborate with team'],
         qualifications: ['Relevant experience', 'Good communication skills'],
@@ -200,7 +235,9 @@ const RoleDetails = () => {
   };
 
   const content = getRoleContent();
-  const subtitleDescription = normalizeDocHeadText(liveDescription || content.desc);
+  const subtitleDescription = roleId === 'internship'
+    ? content.desc
+    : normalizeDocHeadText(liveDescription || content.desc);
   const responsibilities = liveSections.responsibilities.length > 0 ? liveSections.responsibilities : content.responsibilities;
   const qualifications = liveSections.qualifications.length > 0 ? liveSections.qualifications : content.qualifications;
   const benefits = liveSections.benefits.length > 0 ? liveSections.benefits : content.benefits;

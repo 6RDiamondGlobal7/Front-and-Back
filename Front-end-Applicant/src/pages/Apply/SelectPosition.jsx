@@ -15,6 +15,7 @@ const ROLES_DATA = [
   { id: 'licensed-broker', title: 'Licensed Customs Broker', desc: 'Handle customs clearance procedures and regulatory compliance' },
   { id: 'office-manager', title: 'Office Manager', desc: 'Manage office operations and administrative functions' },
   { id: 'messenger', title: 'Messenger / Logistics', desc: 'Handle document delivery and logistics coordination' },
+  { id: 'internship', title: 'Internship', desc: 'Support day-to-day office and logistics tasks' },
   { id: 'secretary', title: 'Secretary to the Office Manager', desc: 'Provide administrative support to the Office Manager' },
   { id: 'brokerage-specialist', title: 'Brokerage Specialist', desc: 'Specialize in brokerage operations and client services' },
   { id: 'import-export-head', title: 'Import & Export Head', desc: 'Lead import and export operations and compliance' },
@@ -38,6 +39,17 @@ const getTitleAliases = (role) => {
 
 const normalizeDocHeadText = (value) =>
   String(value || '').replace(/\bDoc Head\b/gi, 'Documentation Head').replace(/\bDocumentations Head\b/gi, 'Documentation Head');
+
+const normalizeBranchText = (value) => String(value || '')
+  .toLowerCase()
+  .replace(/[^a-z]+/g, ' ')
+  .replace(/\s+/g, ' ')
+  .trim();
+
+const isAllBranchesValue = (value) => {
+  const normalized = normalizeBranchText(value);
+  return normalized === 'all branches' || normalized === 'all branch' || normalized === 'all';
+};
 
 const SelectPosition = () => {
   const navigate = useNavigate();
@@ -73,7 +85,7 @@ const SelectPosition = () => {
         const branchJobs = jobs.filter((job) => {
             const locationText = String(job?.location || '').toLowerCase();
             const branchText = String(job?.branch || '').toLowerCase();
-            const matchesBranch = locationText.includes(branchKey) || branchText.includes(branchKey);
+            const matchesBranch = isAllBranchesValue(branchText) || locationText.includes(branchKey) || branchText.includes(branchKey);
 
             // 1. Check Location Match
             // 2. Check Status Match
@@ -172,7 +184,9 @@ const SelectPosition = () => {
               // Compare DB Titles with Role Titles
               const aliases = getTitleAliases(role);
               const isAvailable = availableJobTitles.some((dbTitle) => aliases.includes(normalizeTitle(dbTitle)));
-              const roleDescription = normalizeDocHeadText(aliases.map((alias) => jobDescriptionByTitle[alias]).find(Boolean) || role.desc);
+              const roleDescription = role.id === 'internship'
+                ? role.desc
+                : normalizeDocHeadText(aliases.map((alias) => jobDescriptionByTitle[alias]).find(Boolean) || role.desc);
 
               return (
                 <div 

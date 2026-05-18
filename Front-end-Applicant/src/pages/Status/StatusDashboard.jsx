@@ -82,6 +82,7 @@ const formatRole = (value) => {
     'licensed-broker': 'Licensed Customs Broker',
     'office-manager': 'Office Manager',
     'messenger': 'Messenger / Logistics',
+    internship: 'Internship',
     'secretary': 'Secretary to the Office Manager',
     'brokerage-specialist': 'Brokerage Specialist',
     'import-export-head': 'Import and Export Head',

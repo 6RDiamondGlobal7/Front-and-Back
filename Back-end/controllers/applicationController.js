@@ -180,6 +180,7 @@ const ROLE_ID_TO_TITLE = {
     'licensed-broker': 'Licensed Customs Broker',
     'office-manager': 'Office Manager',
     'messenger': 'Messenger / Logistics',
+    'internship': 'Internship',
     'secretary': 'Secretary to the Office Manager',
     'brokerage-specialist': 'Brokerage Specialist',
     'import-export-head': 'Import & Export Head',
@@ -195,6 +196,11 @@ const TITLE_TO_ROLE_IDS = Object.entries(ROLE_ID_TO_TITLE).reduce((acc, [roleId,
 }, {});
 
 const isJobActive = (status) => status === true || status === 'true' || status === 'Open' || status === 'Active';
+
+const isAllBranchesValue = (value) => {
+    const normalized = normalizeText(value);
+    return normalized === 'all branches' || normalized === 'all branch' || normalized === 'all';
+};
 
 const normalizeIsoDateOnly = (value) => {
     const raw = String(value || '').trim();
@@ -285,7 +291,7 @@ const applicantMatchesJob = (applicant, job) => {
 
     const applicantBranch = normalizeText(applicant.branch);
     const jobBranch = normalizeText(job.branch);
-    if (applicantBranch && jobBranch) return applicantBranch === jobBranch;
+    if (applicantBranch && jobBranch && !isAllBranchesValue(job.branch)) return applicantBranch === jobBranch;
     return true;
 };
 
@@ -318,7 +324,7 @@ const resolveJobPostingId = async ({ jobId, positionApplied, branch }) => {
         if (!titleMatches) return false;
 
         const normalizedJobBranch = normalizeText(job.branch);
-        if (normalizedBranchInput && normalizedJobBranch) return normalizedBranchInput === normalizedJobBranch;
+        if (normalizedBranchInput && normalizedJobBranch && !isAllBranchesValue(job.branch)) return normalizedBranchInput === normalizedJobBranch;
         return true;
     });
 

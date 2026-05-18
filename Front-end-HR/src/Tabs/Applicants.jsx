@@ -163,7 +163,6 @@ const Applicants = () => {
     Boolean(value) && value !== 'Not assigned' && value !== 'Not specified'
   );
 
-  const positions = ['All Positions', ...new Set(applicants.map((item) => item.position).filter(isSelectableFilterValue))];
   const branches = useMemo(() => {
     const discoveredBranches = Array.from(
       new Set(applicants.map((item) => item.branch).filter(isSelectableFilterValue))
@@ -174,11 +173,47 @@ const Applicants = () => {
     return [...PRIORITIZED_BRANCHES, ...extras];
   }, [applicants]);
 
+  const positionOptions = useMemo(() => {
+    const baseApplicants = applicants.filter((app) => {
+      const appStatus = String(app.status || '').toLowerCase();
+      const matchesStatus = statusFilter === 'All' || appStatus === statusFilter.toLowerCase();
+      const matchesBranch = !branchFilter || app.branch === branchFilter;
+      return matchesStatus && matchesBranch;
+    });
+
+    const countsByPosition = baseApplicants.reduce((acc, app) => {
+      if (!isSelectableFilterValue(app.position)) return acc;
+      acc[app.position] = (acc[app.position] || 0) + 1;
+      return acc;
+    }, {});
+
+    const positions = Object.entries(countsByPosition)
+      .sort((a, b) => {
+        if (b[1] !== a[1]) return b[1] - a[1];
+        return a[0].localeCompare(b[0]);
+      })
+      .map(([position, count]) => ({
+        value: position,
+        label: `${position} (${count})`
+      }));
+
+    return [
+      { value: 'All Positions', label: `All Positions (${baseApplicants.length})` },
+      ...positions
+    ];
+  }, [applicants, statusFilter, branchFilter]);
+
   useEffect(() => {
     if (branches.length > 0 && !branches.includes(branchFilter)) {
       setBranchFilter(branches[0]);
     }
   }, [branches, branchFilter]);
+
+  useEffect(() => {
+    if (!positionOptions.some((option) => option.value === positionFilter)) {
+      setPositionFilter('All Positions');
+    }
+  }, [positionOptions, positionFilter]);
 
   const filteredData = applicants.filter((app) => {
     const appStatus = String(app.status || '').toLowerCase();
@@ -324,7 +359,7 @@ const Applicants = () => {
         <div className="select-wrapper">
           <CustomSelect
             icon={<Briefcase size={18} />}
-            options={positions}
+            options={positionOptions}
             value={positionFilter}
             onChange={(nextValue) => {
               setPositionFilter(nextValue);

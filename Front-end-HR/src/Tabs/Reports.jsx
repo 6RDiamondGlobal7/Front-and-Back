@@ -196,17 +196,32 @@ const Reports = () => {
   const reportRecords = reportData?.records || [];
 
   const roleOptions = useMemo(() => {
-    const roles = Array.from(new Set(
-      reportRecords
-        .map((row) => String(row.position || '').trim())
-        .filter(Boolean)
-    )).sort((a, b) => a.localeCompare(b));
+    const baseRecords = reportRecords.filter((row) => (
+      applicationStatusFilter === 'all' || getStatusKey(row.status) === applicationStatusFilter
+    ));
+
+    const roleCounts = baseRecords.reduce((acc, row) => {
+      const role = String(row.position || '').trim();
+      if (!role) return acc;
+      acc[role] = (acc[role] || 0) + 1;
+      return acc;
+    }, {});
+
+    const roles = Object.entries(roleCounts)
+      .sort((a, b) => {
+        if (b[1] !== a[1]) return b[1] - a[1];
+        return formatRoleName(a[0]).localeCompare(formatRoleName(b[0]));
+      })
+      .map(([role, count]) => ({
+        value: role,
+        label: `${formatRoleName(role)} (${count})`
+      }));
 
     return [
-      { value: 'all', label: 'All roles' },
-      ...roles.map((role) => ({ value: role, label: formatRoleName(role) }))
+      { value: 'all', label: `All roles (${baseRecords.length})` },
+      ...roles
     ];
-  }, [reportRecords]);
+  }, [reportRecords, applicationStatusFilter]);
 
   useEffect(() => {
     if (!roleOptions.some((option) => option.value === roleFilter)) {
