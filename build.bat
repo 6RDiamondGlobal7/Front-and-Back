@@ -9,8 +9,10 @@ echo  6R Diamond Recruitment System Build
 echo ===============================================
 echo [INFO] This build checks:
 echo [INFO] - Front-end-Applicant production build
+echo [INFO]   * Pre-employment Requirements Checklist
 echo [INFO] - Back-end dependencies and syntax
 echo [INFO] - Front-end-HR Electron installer build
+echo [INFO]   * HR Use Only Section
 echo [INFO] Local .env files are required but remain ignored by Git.
 echo.
 

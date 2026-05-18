@@ -79,6 +79,52 @@ const IconAlert = () => (
   </svg>
 );
 
+const faqItems = [
+  {
+    question: 'Where can I find my applicant number and password?',
+    answer: 'Your applicant number and temporary password are sent to the email address you used after your application is submitted successfully.'
+  },
+  {
+    question: 'How can I check the status of my application?',
+    answer: 'Use the Check Status option on this page, then enter your applicant number and password to view your real-time recruitment progress.'
+  },
+  {
+    question: 'What should I do if I entered incorrect information?',
+    answer: 'Contact HR as soon as possible and provide your applicant number so the team can assist with reviewing your submitted details.'
+  },
+  {
+    question: 'What documents do I need to submit?',
+    answer: 'A resume or CV in PDF format is required. A PRC ID is required only for Licensed Customs Broker roles, while an application letter is optional.'
+  },
+  {
+    question: 'Will I need to complete a medical examination?',
+    answer: 'Yes. Applicants must agree to undergo the required medical process or physical examination through the company’s accredited diagnostic clinic.'
+  },
+  {
+    question: 'How will I know my interview schedule?',
+    answer: 'Once HR approves your application for interview, your schedule and instructions will appear on the status dashboard. Keep checking your status page for updates.'
+  }
+];
+
+const FAQsSection = () => (
+  <section className="al-faq-section" aria-labelledby="applicant-faq-title">
+    <div className="al-faq-heading">
+      <span className="al-faq-kicker">FAQs</span>
+      <h2 id="applicant-faq-title">Frequently Asked Questions</h2>
+      <p>Quick answers to common applicant concerns before and after submitting an application.</p>
+    </div>
+
+    <div className="al-faq-list">
+      {faqItems.map((item) => (
+        <details className="al-faq-item" key={item.question}>
+          <summary>{item.question}</summary>
+          <p>{item.answer}</p>
+        </details>
+      ))}
+    </div>
+  </section>
+);
+
 /* --- Privacy Modal (UPDATED CONTENT) --- */
 const PrivacyModal = ({ isOpen, onClose, onProceed }) => {
   const [isChecked, setIsChecked] = useState(false);
@@ -316,6 +362,8 @@ const ApplyLanding = () => {
           </div>
         </div>
       </div>
+
+      <FAQsSection />
 
       <PrivacyModal
         isOpen={showPrivacy}

@@ -81,7 +81,7 @@ const ApplicationReview = () => {
     dataToSend.append('detailedAddress', formData.detailedAddress || '');
     
     // --- MEDICAL FIELDS ---
-    dataToSend.append('medicalCondition', formData.medicalCondition || 'no');
+    dataToSend.append('medicalCondition', formData.medicalCondition || 'disagree');
     dataToSend.append('medicalDetails', formData.medicalDetails || '');
     
     // --- APPLIED YOUR SPECIFIC CODE SNIPPET HERE ---
@@ -168,26 +168,23 @@ const ApplicationReview = () => {
             </div>
         </div>
 
-        {/* MEDICAL CONDITION */}
+        {/* MEDICAL EXAMINATION NOTICE */}
         <div className="af-review-section-card">
-            <h3 className="af-section-title"><span className="af-dot">•</span> Medical Condition Declaration</h3>
+            <h3 className="af-section-title"><span className="af-dot">•</span> Medical Examination Notice</h3>
+            <p className="af-review-notice-text">
+              Applicants are required to undergo a medical process or physical examination through the company's accredited diagnostic clinic as part of the application process.
+            </p>
             <div className="af-review-grid-inner">
                 <div className="af-review-item">
-                    <label className="af-review-label-bold">MEDICAL CONDITION</label>
+                    <label className="af-review-label-bold">APPLICANT RESPONSE</label>
                     <span>
-                      {formData.medicalCondition === 'yes'
-                        ? 'Yes'
-                        : formData.medicalCondition === 'no'
-                          ? 'No'
+                      {formData.medicalCondition === 'agree'
+                        ? 'Agreed'
+                        : formData.medicalCondition === 'disagree'
+                          ? 'Disagreed'
                           : 'N/A'}
                     </span>
                 </div>
-                {formData.medicalCondition === 'yes' && (
-                  <div className="af-review-item">
-                      <label className="af-review-label-bold">CONDITION DETAILS</label>
-                      <span>{formData.medicalDetails || 'N/A'}</span>
-                  </div>
-                )}
             </div>
         </div>
 
@@ -199,6 +196,46 @@ const ApplicationReview = () => {
                 <div className="af-review-doc-item"><IconFileBlue /> {formData.resume?.name || "No Resume Attached"}</div>
                 {formData.prcId && <div className="af-review-doc-item"><IconFileBlue /> {formData.prcId.name}</div>}
                 {formData.coverLetter && <div className="af-review-doc-item"><IconFileBlue /> {formData.coverLetter.name}</div>}
+            </div>
+        </div>
+
+        {/* PRE-EMPLOYMENT REQUIREMENTS CHECKLIST */}
+        <div className="af-review-section-card">
+            <h3 className="af-section-title"><span className="af-dot">•</span> Pre-employment Requirements Checklist</h3>
+            <p className="af-review-notice-text">
+              Please prepare the following documents before the hiring date. These are required for your onboarding process.
+            </p>
+            <div className="af-preemployment-checklist">
+                <div className="af-checklist-item">
+                    <span className="af-checklist-box">□</span>
+                    <span className="af-checklist-text">Police Clearance</span>
+                </div>
+                <div className="af-checklist-item">
+                    <span className="af-checklist-box">□</span>
+                    <span className="af-checklist-text">Photocopy of SSS (Social Security System)</span>
+                </div>
+                <div className="af-checklist-item">
+                    <span className="af-checklist-box">□</span>
+                    <span className="af-checklist-text">Photocopy of PhilHealth</span>
+                </div>
+                <div className="af-checklist-item">
+                    <span className="af-checklist-box">□</span>
+                    <span className="af-checklist-text">Photocopy of Pag-IBIG</span>
+                </div>
+                <div className="af-checklist-item">
+                    <span className="af-checklist-box">□</span>
+                    <span className="af-checklist-text">Other necessary employment documents as requested</span>
+                </div>
+            </div>
+        </div>
+
+        <div className="af-falsification-notice">
+            <div className="af-falsification-icon"><IconWarningLarge /></div>
+            <div>
+                <h3>Falsification Notice</h3>
+                <p>
+                    Falsification of documents or information submitted in this application may result in perjury, immediate disqualification from the application process, and other appropriate action.
+                </p>
             </div>
         </div>
 
@@ -286,10 +323,10 @@ const ApplicationReview = () => {
                 <div className="af-sample-field"><label>Application Letter (Optional - PDF format)</label><div className="af-input sample file-look"><IconFile /> Juan_DelaCruz_ApplicationLetter.pdf</div></div>
               </div>
               <div className="af-sample-section af-sample-section-purple">
-                <h4 className="af-sample-header" style={{ color: '#1A242F' }}>• Medical Condition Declaration</h4>
-                <p style={{ fontSize: '13px', color: '#475569', marginBottom: '8px' }}>Do you have any medical condition that may affect your work performance?</p>
-                <div className="af-med-sample-row"><div className="af-med-radio"><span>○</span> Yes</div><div className="af-med-radio selected"><span>●</span> No</div></div>
-                <p style={{ fontSize: '11px', fontStyle: 'italic', color: '#64748b', marginTop: '8px' }}>* If \"Yes\", please specify your condition in the text box that will appear</p>
+                <h4 className="af-sample-header" style={{ color: '#1A242F' }}>• Medical Examination Notice</h4>
+                <p style={{ fontSize: '13px', color: '#475569', marginBottom: '8px' }}>Applicants are required to undergo a medical process or physical examination through the company's accredited diagnostic clinic.</p>
+                <div className="af-med-sample-row"><div className="af-med-radio selected"><span>●</span> Agree</div><div className="af-med-radio"><span>○</span> Disagree</div></div>
+                <p style={{ fontSize: '11px', fontStyle: 'italic', color: '#64748b', marginTop: '8px' }}>* If "Disagree" is selected, the application process will not proceed.</p>
               </div>
             </div>
             <div className="af-modal-footer"><strong>Note:</strong> Make sure all information is accurate and complete before submitting your application.</div>

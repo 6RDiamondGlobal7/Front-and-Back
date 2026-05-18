@@ -40,6 +40,10 @@ const normalizeStatus = (value) => {
   return 'Applied';
 };
 
+const getDisplayStatus = (status) => (
+  normalizeStatus(status) === 'Applied' ? 'Application Received' : normalizeStatus(status)
+);
+
 const normalizeBranchKey = (value) => String(value || '').trim().toLowerCase();
 
 const formatDateTime = (value) => {
@@ -196,14 +200,14 @@ const StatusDashboard = () => {
   const hasInterviewDetails = hasScheduleDetails(schedule);
   const stageBadges = useMemo(() => {
     // Scenario mapping:
-    // 1) Applied -> all Pending
-    // 2) Interview -> Stage 1 Approved, Stage 2 Pending, Stage 3 Pending
+    // 1) Application received, not yet approved for interview -> all Pending
+    // 2) Interview -> Stage 1 Application Received, Stage 2 Pending, Stage 3 Pending
     // 3) Hired -> all Approved
     // 4) Rejected before interview -> Stage 1 Rejected, others Cancelled
-    // 5) Rejected after interview approval -> Stage 1 Approved, Stage 2 Rejected, Stage 3 Cancelled
+    // 5) Rejected after interview approval -> Stage 1 Application Received, Stage 2 Rejected, Stage 3 Cancelled
     if (currentStatus === 'Hired') {
       return {
-        application: { label: 'Approved', className: 'success' },
+        application: { label: 'Application Received', className: 'success' },
         interview: { label: 'Approved', className: 'success' },
         final: { label: 'Approved', className: 'success' }
       };
@@ -211,16 +215,16 @@ const StatusDashboard = () => {
 
     if (currentStatus === 'Interview') {
       return {
-        application: { label: 'Approved', className: 'success' },
-        interview: { label: 'Pending', className: 'pending' },
-        final: { label: 'Pending', className: 'pending' }
+        application: { label: 'Application Received', className: 'success' },
+        interview: { label: 'In Process', className: 'pending' },
+        final: { label: 'In Process', className: 'pending' }
       };
     }
 
     if (currentStatus === 'Rejected') {
       if (hasInterviewDetails) {
         return {
-          application: { label: 'Approved', className: 'success' },
+          application: { label: 'Application Received', className: 'success' },
           interview: { label: 'Rejected', className: 'rejected' },
           final: { label: 'Cancelled', className: 'cancelled' }
         };
@@ -235,8 +239,8 @@ const StatusDashboard = () => {
 
     return {
       application: { label: 'Pending', className: 'pending' },
-      interview: { label: 'Pending', className: 'pending' },
-      final: { label: 'Pending', className: 'pending' }
+      interview: { label: 'In Process', className: 'pending' },
+      final: { label: 'In Process', className: 'pending' }
     };
   }, [currentStatus, hasInterviewDetails]);
 
@@ -309,7 +313,7 @@ const StatusDashboard = () => {
                 <span className="sd-value-role">{formatRole(applicant?.position)}</span>
               </div>
               <div className="sd-detail-item">
-                <span className="sd-label">Applied</span>
+                <span className="sd-label">Submitted</span>
                 <span className="sd-value">{formatDateTime(applicant?.appliedAt)}</span>
               </div>
             </div>
@@ -439,7 +443,7 @@ const StatusDashboard = () => {
                           </div>
                           <div className="sd-grid-col">
                             <div className="sd-icon-label"><IconUser /> Live Status</div>
-                            <div className="sd-text-main">{currentStatus}</div>
+                            <div className="sd-text-main">{getDisplayStatus(currentStatus)}</div>
                           </div>
                         </div>
 

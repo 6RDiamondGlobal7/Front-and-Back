@@ -665,8 +665,7 @@ const ApplicationForm = () => {
 
   const validateStep4 = () => {
     if (!formData.resume) return true;
-    if (formData.medicalCondition === null) return true;
-    if (formData.medicalCondition === 'yes' && !formData.medicalDetails.trim()) return true;
+    if (formData.medicalCondition !== 'agree') return true;
     if (isBrokerRole && !formData.prcId) return true;
     return false;
   };
@@ -688,7 +687,11 @@ const ApplicationForm = () => {
       }
     } else {
       if (validateStep4()) {
-        setErrorMessage("Please upload all required documents and complete the medical declaration.");
+        if (formData.medicalCondition === 'disagree') {
+          setErrorMessage("Your application cannot proceed unless you agree to undergo the required medical process or physical examination through the company's accredited diagnostic clinic.");
+        } else {
+          setErrorMessage("Please upload all required documents and agree to the medical examination notice.");
+        }
         setShowError(true);
       } else {
         localStorage.removeItem('formStep');
@@ -722,7 +725,7 @@ const ApplicationForm = () => {
         <div className="af-header">
           <div>
             <h1 className="af-title">Application Form</h1>
-            <p className="af-subtitle">{currentStep === 3 ? "Fill out your personal information" : "Upload documents and medical declaration"}</p>
+            <p className="af-subtitle">{currentStep === 3 ? "Fill out your personal information" : "Upload documents and review the medical examination notice"}</p>
           </div>
           <button className="af-sample-btn" onClick={() => setShowSample(true)}>Sample Form</button>
         </div>
@@ -844,24 +847,26 @@ const ApplicationForm = () => {
               <div className="af-note-box"><p><strong>File name format:</strong> FirstName_LastName_ApplicationLetter.pdf</p></div>
             </div>
             
-            <h3 className="af-section-title" style={{marginTop: '40px'}}><span className="af-dot">•</span> Medical Condition Declaration</h3>
-            <p className="af-med-question">Do you have any medical condition that may affect your work performance? <span className="req">*</span></p>
+            <h3 className="af-section-title" style={{marginTop: '40px'}}><span className="af-dot">•</span> Medical Examination Notice</h3>
+            <div className="af-medical-notice">
+              <div className="af-medical-notice-icon"><IconWarning /></div>
+              <div>
+                <p className="af-medical-notice-title">Required medical process</p>
+                <p className="af-medical-notice-text">
+                  Applicants are required to undergo a medical process or physical examination through the company's accredited diagnostic clinic as part of the application process.
+                </p>
+              </div>
+            </div>
+            <p className="af-med-question">Do you agree to comply with this required medical process? <span className="req">*</span></p>
             <div className="af-med-options">
-              <div className={`af-med-option ${formData.medicalCondition === 'yes' ? 'selected' : ''}`} onClick={() => setFormData({...formData, medicalCondition: 'yes'})}>Yes</div>
-              <div className={`af-med-option ${formData.medicalCondition === 'no' ? 'selected' : ''}`} onClick={() => setFormData({...formData, medicalCondition: 'no'})}>No</div>
+              <div className={`af-med-option ${formData.medicalCondition === 'agree' ? 'selected' : ''}`} onClick={() => setFormData({...formData, medicalCondition: 'agree', medicalDetails: ''})}>Agree</div>
+              <div className={`af-med-option danger ${formData.medicalCondition === 'disagree' ? 'selected' : ''}`} onClick={() => setFormData({...formData, medicalCondition: 'disagree', medicalDetails: ''})}>Disagree</div>
             </div>
 
-            {formData.medicalCondition === 'yes' && (
-              <div className="af-med-details-area fade-in">
-                <label className="af-label">Please specify your condition</label>
-                <textarea 
-                  name="medicalDetails" 
-                  className="af-textarea" 
-                  placeholder="Describe your medical condition and how it might affect your work..."
-                  value={formData.medicalDetails}
-                  onChange={handleChange}
-                ></textarea>
-              </div>
+            {formData.medicalCondition === 'disagree' && (
+              <p className="af-med-stop-message fade-in">
+                The application process will not proceed unless you select Agree.
+              </p>
             )}
 
             <button className="af-next-btn" onClick={handleNext}>Next: Review & Submit <IconArrowRight /></button>
@@ -918,10 +923,10 @@ const ApplicationForm = () => {
                     <div className="af-sample-field"><label>Application Letter (Optional - PDF format)</label><div className="af-input sample file-look"><IconFile /> Juan_DelaCruz_ApplicationLetter.pdf</div></div>
                 </div>
                 <div className="af-sample-section af-sample-section-purple">
-                    <h4 className="af-sample-header" style={{color: '#1A242F'}}>• Medical Condition Declaration</h4>
-                    <p style={{fontSize: '13px', color: '#475569', marginBottom: '8px'}}>Do you have any medical condition that may affect your work performance?</p>
-                    <div className="af-med-sample-row"><div className="af-med-radio"><span>○</span> Yes</div><div className="af-med-radio selected"><span>●</span> No</div></div>
-                    <p style={{fontSize: '11px', fontStyle: 'italic', color: '#64748b', marginTop: '8px'}}>* If "Yes", please specify your condition in the text box that will appear</p>
+                    <h4 className="af-sample-header" style={{color: '#1A242F'}}>• Medical Examination Notice</h4>
+                    <p style={{fontSize: '13px', color: '#475569', marginBottom: '8px'}}>Applicants are required to undergo a medical process or physical examination through the company's accredited diagnostic clinic.</p>
+                    <div className="af-med-sample-row"><div className="af-med-radio selected"><span>●</span> Agree</div><div className="af-med-radio"><span>○</span> Disagree</div></div>
+                    <p style={{fontSize: '11px', fontStyle: 'italic', color: '#64748b', marginTop: '8px'}}>* If "Disagree" is selected, the application process will not proceed.</p>
                 </div>
             </div>
             <div className="af-modal-footer"><strong>Note:</strong> Make sure all information is accurate and complete before submitting your application.</div>

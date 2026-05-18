@@ -51,22 +51,28 @@ const Overview = () => {
     fetchApplicants();
   }, [API_BASE_URL]);
 
-  const stats = useMemo(() => {
-    const applied = applicants.filter((a) => {
-      const status = String(a.status || '').toLowerCase();
-      return status === 'applied' || status === 'pending';
-    }).length;
+  const getStatusKey = (status) => {
+    const clean = String(status || '').trim().toLowerCase();
+    if (clean === 'applied' || clean === 'pending' || clean === 'in process') return 'applied';
+    if (clean === 'interview') return 'interview';
+    if (clean === 'hired') return 'hired';
+    if (clean === 'rejected') return 'rejected';
+    return 'applied';
+  };
 
-    const interview = applicants.filter((a) => String(a.status || '').toLowerCase() === 'interview').length;
-    const hired = applicants.filter((a) => String(a.status || '').toLowerCase() === 'hired').length;
-    const rejected = applicants.filter((a) => String(a.status || '').toLowerCase() === 'rejected').length;
+  const stats = useMemo(() => {
+    const statusCounts = applicants.reduce((acc, applicant) => {
+      const key = getStatusKey(applicant.status);
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, { applied: 0, interview: 0, hired: 0, rejected: 0 });
 
     return {
       total: applicants.length,
-      applied,
-      interview,
-      hired,
-      rejected
+      applied: statusCounts.applied,
+      interview: statusCounts.interview,
+      hired: statusCounts.hired,
+      rejected: statusCounts.rejected
     };
   }, [applicants]);
 

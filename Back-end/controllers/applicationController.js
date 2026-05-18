@@ -639,11 +639,12 @@ exports.getJobPostingsDashboard = async (req, res) => {
 
 exports.getUpcomingInterviews = async (req, res) => {
     try {
+        const today = todayIsoDateOnly();
         const { data, error } = await supabase
             .from('applicantfacttable')
-            .select('schedule:schedule_id(interview_schedule), status!inner(interview)')
+            .select('schedule:schedule_id!inner(interview_schedule), status!inner(interview)')
             .eq('status.interview', 1)
-            .not('schedule_id', 'is', null);
+            .gte('schedule.interview_schedule', today);
 
         if (error) throw error;
 
@@ -1254,9 +1255,9 @@ exports.getApplicants = async (req, res) => {
         const { data, error } = await supabase.from('applicant').select(`*, applicantfacttable (applied_date, status (applied, interview, hired, rejected))`).order('applicant_no', { ascending: false });
         if (error) throw error;
         res.json(data.map(app => ({
-            appliedAt: app.created_at || app.createdAt || inferAppliedAtFromApplicant(app),
+            appliedAt: inferAppliedAtFromApplicant(app) || app.created_at || app.createdAt,
             created_at: app.created_at || null,
-            application_date: app.created_at || app.createdAt || inferAppliedAtFromApplicant(app),
+            application_date: inferAppliedAtFromApplicant(app) || app.created_at || app.createdAt,
             id: app.applicant_no || 'N/A', name: `${app.first_name || ''} ${app.last_name || ''}`.trim(),
             firstName: app.first_name, lastName: app.last_name, middleInitial: app.middle_initial,
             nationality: app.nationality, birthday: app.birthday, age: app.age, email: app.email || 'N/A', phone: app.contact_number || 'N/A',
@@ -1281,7 +1282,7 @@ exports.getReports = async (req, res) => {
         const endMs = new Date(`${period.endDate}T00:00:00.000Z`).getTime();
 
         const records = (data || []).map((app) => {
-            const appliedRaw = app.created_at || app.createdAt || inferAppliedAtFromApplicant(app);
+            const appliedRaw = inferAppliedAtFromApplicant(app) || app.created_at || app.createdAt;
             return {
                 id: app.applicant_no || 'N/A', name: `${app.first_name || ''} ${app.last_name || ''}`.trim() || 'N/A',
                 email: app.email || 'N/A', phone: app.contact_number || 'N/A', status: normalizeStatus(extractApplicantStatus(app)),

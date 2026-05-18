@@ -3,6 +3,10 @@ echo ===================================================
 echo Starting 6R Diamond Recruitment System (Local Dev)
 echo ===================================================
 echo.
+echo Recent Updates:
+echo - HR Portal: Added "For 6R Diamond HR Use Only" section
+echo - Applicant Portal: Added Pre-employment Requirements Checklist
+echo.
 echo The servers will open in three separate command windows.
 echo Please wait for "npm install" to finish in each window.
 echo.
