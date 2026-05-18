@@ -23,6 +23,43 @@
   color: var(--hr-text);
 }
 
+.hr-use-only-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 20px 0 28px 0;
+  width: 100%;
+}
+
+.hr-use-only-label {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #5d9cec;
+  letter-spacing: 0.3px;
+  width: 100%;
+  max-width: 100%;
+}
+
+.hr-use-only-label::before,
+.hr-use-only-label::after {
+  content: '';
+  display: block;
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, transparent, #cbd5e1 10%, #cbd5e1 90%, transparent);
+  background-image: repeating-linear-gradient(
+    to right,
+    #cbd5e1 0,
+    #cbd5e1 6px,
+    transparent 6px,
+    transparent 12px
+  );
+  min-width: 40px;
+}
+
 .overview-content {
   display: flex;
   flex-direction: column;

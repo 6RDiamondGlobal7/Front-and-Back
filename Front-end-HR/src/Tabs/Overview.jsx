@@ -235,6 +235,10 @@ const Overview = () => {
         </div>
       </div>
 
+      <div className="hr-use-only-section">
+        <div className="hr-use-only-label">For 6R Diamond HR Use Only</div>
+      </div>
+
       <div className="overview-stats-grid">
         <div className="overview-stat-card accent-blue">
           <div>
