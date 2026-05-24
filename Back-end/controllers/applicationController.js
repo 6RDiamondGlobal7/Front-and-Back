@@ -54,8 +54,7 @@ const sendEmail = async (mailOptions) => {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${resendKey}`
                 },
-                body: JSON.stringify(payload),
-                // small timeout environments will be handled by host; rely on host-level timeouts
+                body: JSON.stringify(payload)
             });
 
             if (res.ok) {
@@ -69,8 +68,9 @@ const sendEmail = async (mailOptions) => {
             err.code = res.status;
             throw err;
         } catch (resendErr) {
-            console.warn('Resend send failed, trying next provider:', resendErr?.message || resendErr);
-            // try next provider (SendGrid) or SMTP below
+            console.error('Resend send failed and SMTP fallback is disabled when RESEND_API_KEY is set:', resendErr?.message || resendErr);
+            // When RESEND_API_KEY is configured, prefer failing fast to avoid unreliable SMTP fallbacks.
+            throw resendErr;
         }
     }
 
