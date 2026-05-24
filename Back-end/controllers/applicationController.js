@@ -1,8 +1,6 @@
 const supabase = require('../config/supabaseClient');
 const nodemailer = require('nodemailer'); // 1. Import Nodemailer
 const crypto = require('crypto'); // <-- Added crypto module
-// Use global fetch (Node 18+) for calling Resend API when `RESEND_API_KEY` is provided.
-const fetchFn = (typeof globalThis.fetch === 'function') ? globalThis.fetch : null;
 
 // ==========================================
 // --- Email Transporter Configuration ---
@@ -35,34 +33,6 @@ const createFallbackTransporter = () => nodemailer.createTransport({
 });
 
 const sendEmail = async (mailOptions) => {
-    // If a Resend API key is configured and `fetch` is available, try Resend first.
-    if (String(process.env.RESEND_API_KEY || '').trim() && fetchFn) {
-        try {
-            const to = Array.isArray(mailOptions.to) ? mailOptions.to : String(mailOptions.to || '').split(',').map(s => s.trim()).filter(Boolean);
-            const payload = { from: mailOptions.from, to, subject: mailOptions.subject, html: mailOptions.html };
-            const resp = await fetchFn('https://api.resend.com/emails', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${String(process.env.RESEND_API_KEY).trim()}`
-                },
-                body: JSON.stringify(payload)
-            });
-            if (!resp.ok) {
-                const txt = await resp.text();
-                throw new Error(`Resend API error: ${resp.status} ${txt}`);
-            }
-            return await resp.json();
-        } catch (resendErr) {
-            const resendMessage = resendErr && resendErr.message ? resendErr.message : resendErr;
-            console.warn('Resend delivery failed:', resendMessage);
-            const allowSmtpFallback = String(process.env.EMAIL_SMTP_FALLBACK || '').toLowerCase() === 'true' || String(process.env.NODE_ENV || '').toLowerCase() !== 'production';
-            if (!allowSmtpFallback) {
-                throw resendErr;
-            }
-            console.warn('Falling back to SMTP because SMTP fallback is enabled.');
-        }
-    }
     if (!emailUser || !emailPass) {
         throw new Error('Email sender credentials are missing. Set EMAIL_USER and EMAIL_PASS in Back-end/.env.');
     }
