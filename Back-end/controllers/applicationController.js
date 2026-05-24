@@ -711,6 +711,101 @@ const inferAppliedAtFromApplicant = (applicantRow) => {
 };
 
 const APPLICATION_ACTIVE_WINDOW_DAYS = 90;
+const REAPPLICATION_WAIT_DAYS = 30;
+
+const getApplicantStatusLabel = (applicantRow) => {
+    const fact = Array.isArray(applicantRow?.applicantfacttable) ? applicantRow.applicantfacttable[0] : applicantRow?.applicantfacttable;
+    const status = fact?.status || null;
+    if (!status) return 'Applied';
+    if (status.interview === 1) return 'Interview';
+    if (status.hired === 1) return 'Hired';
+    if (status.rejected === 1) return 'Rejected';
+    return 'Applied';
+};
+
+const getApplicantAppliedAt = (applicantRow) => {
+    const fact = Array.isArray(applicantRow?.applicantfacttable) ? applicantRow.applicantfacttable[0] : applicantRow?.applicantfacttable;
+    const factAppliedDate = fact?.applied_date || null;
+    if (factAppliedDate) {
+        const parsed = new Date(factAppliedDate);
+        if (!Number.isNaN(parsed.getTime())) return parsed;
+    }
+
+    const fallback = inferAppliedAtFromApplicant(applicantRow) || applicantRow?.created_at || applicantRow?.createdAt || null;
+    if (!fallback) return null;
+    const parsed = new Date(fallback);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const isReapplyAllowed = (applicantRow) => {
+    if (!applicantRow) return true;
+    const statusLabel = getApplicantStatusLabel(applicantRow);
+    if (statusLabel !== 'Rejected') return false;
+
+    const appliedAt = getApplicantAppliedAt(applicantRow);
+    if (!appliedAt) return false;
+
+    const waitUntil = new Date(appliedAt);
+    waitUntil.setDate(waitUntil.getDate() + REAPPLICATION_WAIT_DAYS);
+    return Date.now() >= waitUntil.getTime();
+};
+
+const buildDuplicateApplicationError = (reason) => ({
+    status: 409,
+    error: reason
+});
+
+const findExistingApplicantApplications = async ({ email, firstName, lastName }) => {
+    const cleanEmail = normalizeEmail(email);
+    const cleanFirstName = normalizeText(firstName);
+    const cleanLastName = normalizeText(lastName);
+
+    if (!cleanEmail && (!cleanFirstName || !cleanLastName)) return [];
+
+    const selectColumns = `
+        applicant_no,
+        email,
+        first_name,
+        last_name,
+        created_at,
+        createdAt,
+        applicantfacttable (applied_date, status (applied, interview, hired, rejected))
+    `;
+
+    const queryPromises = [];
+
+    if (cleanEmail) {
+        queryPromises.push(
+            supabase
+                .from('applicant')
+                .select(selectColumns)
+                .ilike('email', cleanEmail)
+        );
+    }
+
+    if (cleanFirstName && cleanLastName) {
+        queryPromises.push(
+            supabase
+                .from('applicant')
+                .select(selectColumns)
+                .ilike('first_name', cleanFirstName)
+                .ilike('last_name', cleanLastName)
+        );
+    }
+
+    const results = await Promise.all(queryPromises);
+    const merged = new Map();
+
+    for (const result of results) {
+        if (result.error) throw result.error;
+        for (const row of result.data || []) {
+            const key = String(row?.applicant_no || '').trim();
+            if (key) merged.set(key, row);
+        }
+    }
+
+    return Array.from(merged.values());
+};
 
 const buildApplicationPolicy = (appliedAt) => {
     if (!appliedAt) {
@@ -1283,6 +1378,30 @@ exports.submitApplication = async (req, res) => {
     } = req.body;
 
     try {
+        const duplicateApplications = await findExistingApplicantApplications({ email, firstName, lastName });
+        if (duplicateApplications.length > 0) {
+            const activeApplication = duplicateApplications.find((applicantRow) => getApplicantStatusLabel(applicantRow) !== 'Rejected');
+            if (activeApplication) {
+                return res.status(409).json({
+                    error: 'You already submitted an application. One application per applicant is allowed until HR marks it Rejected and 30 days have passed.'
+                });
+            }
+
+            const latestRejected = duplicateApplications
+                .filter((applicantRow) => getApplicantStatusLabel(applicantRow) === 'Rejected')
+                .sort((a, b) => {
+                    const aTime = getApplicantAppliedAt(a)?.getTime() || 0;
+                    const bTime = getApplicantAppliedAt(b)?.getTime() || 0;
+                    return bTime - aTime;
+                })[0];
+
+            if (latestRejected && !isReapplyAllowed(latestRejected)) {
+                return res.status(409).json({
+                    error: 'You may submit a new application only after 30 days from rejection.'
+                });
+            }
+        }
+
         const resolvedJobIdPre = await resolveJobPostingId({ jobId, positionApplied, branch });
         if (resolvedJobIdPre) {
             const { data: jobRow, error: jobError } = await supabase
