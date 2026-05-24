@@ -3,6 +3,7 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import './ApplicationForm.css';
 import { getApiBaseUrl } from '../../config/api';
+import { useToast } from '../../components/ui/ToastProvider';
 
 // --- ICONS ---
 const IconFileBlue = () => ( <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4A90E2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg> );
@@ -44,6 +45,7 @@ const ApplicationReview = () => {
   const [showSample, setShowSample] = useState(false);
   const [signature, setSignature] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { showToast } = useToast();
 
   const handleBack = () => {
     localStorage.setItem('formStep', '4');
@@ -110,10 +112,10 @@ const ApplicationReview = () => {
             setTimeout(() => setShowSuccess(true), 100);
         }
     } catch (error) {
-        console.error("Submission Error:", error);
-        const errorMsg = error.response?.data?.error || error.message;
-        alert(`Failed to submit: ${errorMsg}`);
-        setShowConfirm(false);
+      console.error("Submission Error:", error);
+      const errorMsg = error.response?.data?.error || error.message;
+      showToast({ type: 'error', title: 'Submission Failed', message: errorMsg, timeout: 9000 });
+      setShowConfirm(false);
     } finally {
         setIsSubmitting(false);
     }

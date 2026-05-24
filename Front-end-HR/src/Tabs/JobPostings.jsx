@@ -21,6 +21,7 @@ import {
 import { getApiBaseUrl } from '../config/api';
 import './JobPostings.css';
 import CustomSelect from '../components/CustomSelect';
+import { useToast } from '../components/ui/ToastProvider';
 
 const DEFAULT_CONTRACT_TYPES = ['Full-time', 'Part-time', 'Contract', 'Internship'];
 const MAX_APPLICANTS_CAP = 10000;
@@ -61,9 +62,9 @@ const normalizeDashedTextareaInput = (value) => String(value || '')
   .map((line) => {
     const clean = line.trimStart();
     if (!clean) return '';
-    return clean.startsWith('-')
-      ? `- ${clean.replace(/^-+\s*/, '')}`
-      : `- ${clean}`;
+      return clean.startsWith('-')
+        ? `- ${clean.replace(/^-+\s*/, '')}`
+        : `- ${clean}`;
   })
   .join('\n');
 
@@ -77,6 +78,7 @@ const PRIORITIZED_BRANCHES = ['Manila', 'Cebu', 'Davao'];
 
 const JobPostings = () => {
   const API_BASE_URL = getApiBaseUrl();
+  const { showToast } = useToast();
 
   const [jobs, setJobs] = useState([]);
   const [summary, setSummary] = useState({
@@ -93,7 +95,7 @@ const JobPostings = () => {
   const [activeMenu, setActiveMenu] = useState(null);
   const [activeFilterMenu, setActiveFilterMenu] = useState(null);
 
-  const [activeModal, setActiveModal] = useState(null);
+        showToast({ type: 'warning', title: 'Validation', message: 'Job title is required.' });
   const [selectedJob, setSelectedJob] = useState(null);
   const [saving, setSaving] = useState(false);
 
@@ -124,8 +126,8 @@ const JobPostings = () => {
   const todayDateOnly = () => new Date().toISOString().slice(0, 10);
 
   const tomorrowDateOnly = () => {
-    const now = new Date();
-    const tomorrow = new Date(now);
+        const apiError = err?.response?.data?.error;
+        showToast({ type: 'error', title: 'Create Failed', message: apiError ? `Failed to create job posting: ${apiError}` : 'Failed to create job posting. Please try again.' });
     tomorrow.setDate(tomorrow.getDate() + 1);
     return tomorrow.toISOString().slice(0, 10);
   };
@@ -168,8 +170,8 @@ const JobPostings = () => {
 
   const getDescriptionForJob = (job) => {
     if (!job) return '';
-    return jobDescriptions[job.job_id] || buildDefaultDescription(job.job_title);
-  };
+        const apiError = err?.response?.data?.error;
+        showToast({ type: 'error', title: 'Update Failed', message: apiError ? `Failed to update job posting: ${apiError}` : 'Failed to update job posting. Please try again.' });
 
   const fetchJobPostingsDashboard = async () => {
     setLoading(true);
@@ -188,7 +190,7 @@ const JobPostings = () => {
       });
 
       setJobDescriptions((prev) => {
-        const next = { ...prev };
+        showToast({ type: 'error', title: 'Action Failed', message: 'Failed to close position. Please try again.' });
         incomingJobs.forEach((job) => {
           if (!next[job.job_id]) {
             next[job.job_id] = String(job.description || '').trim() || buildDefaultDescription(job.job_title);
@@ -206,7 +208,7 @@ const JobPostings = () => {
   };
 
   useEffect(() => {
-    fetchJobPostingsDashboard();
+        showToast({ type: 'error', title: 'Action Failed', message: 'Failed to open position. Please try again.' });
   }, [API_BASE_URL]);
 
   useEffect(() => {
@@ -224,7 +226,7 @@ const JobPostings = () => {
 
     window.addEventListener('resize', closeActionMenu);
     window.addEventListener('scroll', closeActionMenu, true);
-
+        showToast({ type: 'error', title: 'Delete Failed', message: 'Failed to delete job posting. Please try again.' });
     return () => {
       window.removeEventListener('resize', closeActionMenu);
       window.removeEventListener('scroll', closeActionMenu, true);
@@ -469,7 +471,7 @@ const JobPostings = () => {
 
   const handleCreateJob = async () => {
     if (!createForm.job_title.trim()) {
-      alert('Job title is required.');
+      showToast({ type: 'warning', title: 'Validation', message: 'Job title is required.' });
       return;
     }
 
@@ -501,7 +503,7 @@ const JobPostings = () => {
     } catch (err) {
       console.error('Failed to create job posting:', err);
       const apiError = err?.response?.data?.error;
-      alert(apiError ? `Failed to create job posting: ${apiError}` : 'Failed to create job posting. Please try again.');
+      showToast({ type: 'error', title: 'Create Failed', message: apiError ? `Failed to create job posting: ${apiError}` : 'Failed to create job posting. Please try again.' });
     } finally {
       setSaving(false);
     }
@@ -545,7 +547,7 @@ const JobPostings = () => {
     } catch (err) {
       console.error('Failed to update job posting:', err);
       const apiError = err?.response?.data?.error;
-      alert(apiError ? `Failed to update job posting: ${apiError}` : 'Failed to update job posting. Please try again.');
+      showToast({ type: 'error', title: 'Update Failed', message: apiError ? `Failed to update job posting: ${apiError}` : 'Failed to update job posting. Please try again.' });
     } finally {
       setSaving(false);
     }
@@ -564,7 +566,7 @@ const JobPostings = () => {
       fetchJobPostingsDashboard();
     } catch (err) {
       console.error('Failed to close position:', err);
-      alert('Failed to close position. Please try again.');
+      showToast({ type: 'error', title: 'Action Failed', message: 'Failed to close position. Please try again.' });
     } finally {
       setSaving(false);
     }
@@ -582,7 +584,7 @@ const JobPostings = () => {
       fetchJobPostingsDashboard();
     } catch (err) {
       console.error('Failed to open position:', err);
-      alert('Failed to open position. Please try again.');
+      showToast({ type: 'error', title: 'Action Failed', message: 'Failed to open position. Please try again.' });
     } finally {
       setSaving(false);
       setActiveMenu(null);
@@ -600,7 +602,7 @@ const JobPostings = () => {
       fetchJobPostingsDashboard();
     } catch (err) {
       console.error('Failed to delete job posting:', err);
-      alert('Failed to delete job posting. Please try again.');
+      showToast({ type: 'error', title: 'Delete Failed', message: 'Failed to delete job posting. Please try again.' });
     } finally {
       setSaving(false);
     }

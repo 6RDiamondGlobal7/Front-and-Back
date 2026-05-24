@@ -22,6 +22,7 @@ import { getApiBaseUrl } from '../config/api';
 import './JobPostings.css';
 import CustomSelect from '../components/CustomSelect';
 import DatePicker from '../components/DatePicker';
+import { useToast } from '../components/ui/ToastProvider';
 
 const DEFAULT_CONTRACT_TYPES = ['Full-time', 'Part-time', 'Contract', 'Internship'];
 const MAX_APPLICANTS_CAP = 10000;
@@ -78,6 +79,7 @@ const PRIORITIZED_BRANCHES = ['Manila', 'Cebu', 'Davao'];
 
 const JobPostings = () => {
   const API_BASE_URL = getApiBaseUrl();
+  const { showToast } = useToast();
 
   const [jobs, setJobs] = useState([]);
   const [summary, setSummary] = useState({
@@ -427,7 +429,7 @@ const JobPostings = () => {
 
   const handleCreateJob = async () => {
     if (!createForm.job_title.trim()) {
-      alert('Job title is required.');
+      showToast({ type: 'warning', title: 'Validation', message: 'Job title is required.' });
       return;
     }
 
@@ -459,7 +461,7 @@ const JobPostings = () => {
     } catch (err) {
       console.error('Failed to create job posting:', err);
       const apiError = err?.response?.data?.error;
-      alert(apiError ? `Failed to create job posting: ${apiError}` : 'Failed to create job posting. Please try again.');
+      showToast({ type: 'error', title: 'Create Failed', message: apiError ? `Failed to create job posting: ${apiError}` : 'Failed to create job posting. Please try again.' });
     } finally {
       setSaving(false);
     }
@@ -503,7 +505,7 @@ const JobPostings = () => {
     } catch (err) {
       console.error('Failed to update job posting:', err);
       const apiError = err?.response?.data?.error;
-      alert(apiError ? `Failed to update job posting: ${apiError}` : 'Failed to update job posting. Please try again.');
+      showToast({ type: 'error', title: 'Update Failed', message: apiError ? `Failed to update job posting: ${apiError}` : 'Failed to update job posting. Please try again.' });
     } finally {
       setSaving(false);
     }
@@ -522,7 +524,7 @@ const JobPostings = () => {
       fetchJobPostingsDashboard();
     } catch (err) {
       console.error('Failed to close position:', err);
-      alert('Failed to close position. Please try again.');
+      showToast({ type: 'error', title: 'Action Failed', message: 'Failed to close position. Please try again.' });
     } finally {
       setSaving(false);
     }
@@ -540,7 +542,7 @@ const JobPostings = () => {
       fetchJobPostingsDashboard();
     } catch (err) {
       console.error('Failed to open position:', err);
-      alert('Failed to open position. Please try again.');
+      showToast({ type: 'error', title: 'Action Failed', message: 'Failed to open position. Please try again.' });
     } finally {
       setSaving(false);
       setActiveMenu(null);
@@ -558,7 +560,7 @@ const JobPostings = () => {
       fetchJobPostingsDashboard();
     } catch (err) {
       console.error('Failed to delete job posting:', err);
-      alert('Failed to delete job posting. Please try again.');
+      showToast({ type: 'error', title: 'Delete Failed', message: 'Failed to delete job posting. Please try again.' });
     } finally {
       setSaving(false);
     }

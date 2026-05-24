@@ -21,6 +21,7 @@ import './Applicants.css';
 import { getApiBaseUrl } from '../config/api';
 import ConfirmationModal from '../components/ConfirmationModal';
 import CustomSelect from '../components/CustomSelect';
+import { useToast } from '../components/ui/ToastProvider';
 
 const PRIORITIZED_BRANCHES = ['Manila', 'Cebu', 'Davao'];
 const APPLICATION_ACTIVE_WINDOW_DAYS = 90;
@@ -31,6 +32,7 @@ const getDisplayStatus = (status) => (
 
 const Applicants = () => {
   const API_BASE_URL = getApiBaseUrl();
+  const { showToast } = useToast();
   const [applicants, setApplicants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedApplicant, setSelectedApplicant] = useState(null);
@@ -153,7 +155,7 @@ const Applicants = () => {
       setConfirmAction(null);
     } catch (error) {
       console.error('Error updating status:', error);
-      alert('Failed to update status. Please try again.');
+      showToast({ type: 'error', title: 'Update Failed', message: 'Failed to update status. Please try again.' });
     } finally {
       setStatusUpdateLoading(false);
     }
@@ -274,7 +276,7 @@ const Applicants = () => {
 
   const handleDownloadResume = (app) => {
     if (!app?.resume_url) {
-      alert('No resume uploaded for this applicant.');
+      showToast({ type: 'warning', title: 'No Resume', message: 'No resume uploaded for this applicant.' });
       return;
     }
     window.open(app.resume_url, '_blank', 'noopener,noreferrer');
