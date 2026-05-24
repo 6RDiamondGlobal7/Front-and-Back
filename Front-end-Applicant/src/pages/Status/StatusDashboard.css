@@ -1,0 +1,428 @@
+/* === PAGE BACKGROUND === */
+.sd-page-container {
+  min-height: 100vh;
+  width: 100%;
+  background-color: #EBF4FF;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  padding: 30px 20px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  padding-top: 80px;
+}
+
+/* === BACK BUTTON === */
+.sd-back-btn {
+  position: fixed;
+  top: 32px;
+  left: 32px;
+  background: white;
+  border: 1px solid #e2e8f0;
+  padding: 15px 25px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #25282e;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  font-size: 20px;
+  z-index: 100;
+}
+.sd-back-btn:hover { color: #1e293b; background: #f8fafc; }
+
+/* === HEADER CARD === */
+.sd-header-card {
+  background: white;
+  width: 100%;
+  max-width: 900px;
+  border-radius: 20px; /* Slightly rounder to match image */
+  padding: 40px;
+  display: flex; /* Makes the card a row */
+  flex-direction: row;
+  align-items: center; /* Vertically center content */
+  gap: 40px; /* Space between Logo and Content */
+  box-shadow: 0 4px 20px 15px rgba(0, 0, 0, 0.08);
+  border: 1px solid white;
+}
+
+/* Logo Section */
+.sd-header-logo-section { flex: 0 0 220px; display: flex; justify-content: flex-start; }
+.sd-logo { width: 100%; height: auto; object-fit: contain; }
+
+/* Header Content */
+.sd-header-content-section { flex: 1; }
+.sd-title { font-size: 26px; font-weight: 800; color: #0f172a; margin: 0; }
+.sd-subtitle { font-size: 14px; color: #64748b; margin: 4px 0 20px 0; }
+.sd-loading,
+.sd-error {
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+.sd-loading {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+}
+.sd-error {
+  color: #b91c1c;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+/* Grid for Header Details */
+.sd-details-grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px; }
+.sd-detail-item { display: flex; flex-direction: column; gap: 2px; }
+.sd-label { font-size: 14px; color: #9098a1; font-weight: 600; text-transform: uppercase; display: flex; align-items: center; gap: 5px; }
+.sd-value { font-size: 16px; font-weight: 700; color: #334155; }
+.sd-value-role { font-size: 14px; font-weight: 700; color: #334155; line-height: 1.4; }
+
+/* === PROGRESS SECTION === */
+.sd-progress-section {
+  width: 100%;
+  max-width: 800px;
+}
+
+.sd-progress-card {
+  background: white;
+  width: 100%;
+  max-width: 900px;
+  border-radius: 16px;
+  padding: 40px;
+  box-shadow: 0 4px 20px 15px rgba(0, 0, 0, 0.08);
+}
+
+.sd-policy-card {
+  width: 100%;
+  max-width: 900px;
+  background: linear-gradient(135deg, #eff6ff 0%, #ffffff 100%);
+  border: 1px solid #bfdbfe;
+  border-radius: 16px;
+  padding: 22px 24px;
+  box-shadow: 0 4px 20px 15px rgba(0, 0, 0, 0.05);
+}
+
+.sd-policy-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.sd-policy-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sd-policy-days {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #1e40af;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.sd-policy-text {
+  margin: 14px 0 12px;
+  color: #1e3a8a;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.sd-policy-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  color: #334155;
+  font-size: 14px;
+}
+
+.sd-section-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f172a;
+  margin-bottom: 20px;
+  padding-left: 5px; /* Align with content */
+}
+
+/* === TIMELINE === */
+.sd-timeline { position: relative; }
+
+/* Vertical Line */
+.sd-timeline-line {
+  position: absolute;
+  /* Updated Alignment: Center of 54px icon is 27px. Line is 2px wide. 27-1 = 26px */
+  left: 26px; 
+  top: 10px;
+  bottom: 0px;
+  width: 2px;
+  z-index: 0;
+
+  background: linear-gradient(
+    to bottom, 
+    #3b82f6 0%,   /* Starts pure Blue at the top */
+    #94a3b8 50%,  /* Fades to pure Gray in the middle */
+    #fbbf24 100%  /* Fades to pure Gold at the bottom */
+  );
+}
+
+.sd-timeline-item {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 30px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Icon */
+.sd-timeline-icon {
+  width: 48px; height: 48px;
+  flex-shrink: 0;
+  background: white; /* To cover the line behind it */
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+
+
+.sd-timeline-icon svg { width: 48px; height: 48px; display: block; }
+
+/* Content Wrapper */
+.sd-timeline-content { flex: 1; display: flex; flex-direction: column; gap: 12px; }
+
+/* Step Info (Title + Badge) */
+.sd-step-info { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.sd-step-info h3 { margin: 0; font-size: 19px; font-weight: 700; color: #0f172a; }
+
+/* Badge */
+.sd-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 12px;
+  border-radius: 10px; /* Pill shape */
+  font-size: 15px; font-weight: 600;
+  border: 1px solid;
+}
+.sd-badge.success {
+  background-color: #dcfce7; /* Light Green */
+  color: #16a34a; /* Green Text */
+  border-color: #86efac; /* Green Border */
+}
+.sd-badge.pending {
+  background-color: #fff7ed;
+  color: #c2410c;
+  border-color: #fdba74;
+}
+.sd-badge.rejected {
+  background-color: #fef2f2;
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+.sd-badge.cancelled {
+  background-color: #f1f5f9;
+  color: #475569;
+  border-color: #cbd5e1;
+}
+
+/* Main Content Box */
+.sd-content-box {
+  background: rgba(236, 236, 236, 0.267);
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+/* Date List (Step 1) */
+.sd-date-list {
+  display: flex; flex-direction: column; gap: 4px;
+  margin-bottom: 16px;
+  font-size: 16px; color: #2a313b;
+}
+
+/* Nested Gray Box (Feedback/Instructions) */
+.sd-nested-box {
+  background-color: #F1F5F9; /* Slate-100 */
+  border-radius: 6px;
+  padding: 16px;
+  border: 1px solid #b4b5b68c;
+  font-size: 16px; color: #475569;
+}
+.sd-nested-box strong { display: block; color: #1e293b; margin-bottom: 4px; }
+.sd-nested-box p { margin: 0; line-height: 1.5; }
+
+/* Alerts (Blue/Green Banners) */
+.sd-alert {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 15px; font-weight: 600;
+  margin-bottom: 20px;
+}
+.sd-alert.blue {
+  background-color: #eff6ff; /* Blue-50 */
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8; /* Blue-700 */
+}
+.sd-alert.green {
+  background-color: #dcfce7; /* Green-100 */
+  border: 1px solid #bbf7d0;
+  color: #15803d; /* Green-700 */
+}
+
+.sd-interview-panel {
+  border: 1px solid #bfdbfe;
+  background: #f8fbff;
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.sd-interview-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #93c5fd;
+  background: #eaf3ff;
+  color: #1d4ed8;
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+
+.sd-interview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.sd-interview-item {
+  background: #ffffff;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.sd-interview-item-wide {
+  grid-column: 1 / -1;
+}
+
+.sd-interview-note {
+  margin-top: 14px;
+  background: #eef4ff;
+  border: 1px solid #c7dcff;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.sd-interview-note strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #1e3a8a;
+  font-size: 14px;
+}
+
+.sd-interview-note p {
+  margin: 8px 0 0;
+  color: #334155;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Grid Rows for Details */
+.sd-grid-row { display: flex; gap: 24px; margin-bottom: 16px; flex-wrap: wrap; }
+.sd-grid-col { flex: 1; min-width: 200px; }
+.sd-grid-col.full { flex: 100%; }
+
+.sd-icon-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 14px; font-weight: 700; color: #64748b;
+  text-transform: uppercase; margin-bottom: 4px;
+}
+.sd-text-main { font-size: 15px; color: #0f151f; font-weight: 500; }
+.sd-text-sub { font-size: 15px; color: #1c2127; margin-top: 2px; font-weight:500; }
+
+/* === FOOTER === */
+.sd-footer {
+  width: 100%;
+  max-width: 900px; /* Matches the width of your other cards */
+  background-color: #397bc7d8; /* The specific blue from the image */
+  color: white;
+  text-align: center;
+  padding: 31px 20px;
+  border-radius: 16px;
+  margin-top: 30px;
+  margin-bottom: 15px; /* Adds space at the very bottom of the page */
+  box-shadow: 0 4px 20px 15px rgba(0, 0, 0, 0.08);/* Soft blue shadow */
+}
+
+.sd-footer h3 {
+  margin: 0 0 8px 0;
+  font-size: 23px;
+  font-weight: 700;
+}
+
+.sd-footer p {
+  margin: 0 0 20px 0;
+  font-size: 17px;
+  opacity: 0.9;
+}
+
+/* Contact Info Row */
+.sd-footer-contacts {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px; /* Space between items */
+  font-size: 17px;
+}
+
+.sd-footer-contacts strong {
+  font-weight: 700;
+}
+
+/* The vertical separator line */
+.sd-footer-divider {
+  opacity: 0.5;
+  font-size: 16px;
+  font-weight: 300;
+}
+
+/* Mobile responsiveness for footer */
+@media (max-width: 600px) {
+  .sd-footer-contacts {
+    flex-direction: column; /* Stack email and phone on small screens */
+    gap: 8px;
+  }
+  .sd-footer-divider {
+    display: none; /* Hide the "|" separator on mobile */
+  }
+}
+
+@media (max-width: 600px) {
+  .sd-header-card { flex-direction: column; align-items: flex-start; }
+  .sd-details-grid { grid-template-columns: 1fr; }
+  .sd-timeline-item { gap: 16px; }
+  .sd-timeline-icon { width: 32px; height: 32px; }
+  .sd-timeline-icon svg { width: 32px; height: 32px; }
+  .sd-timeline-line { left: 15px; }
+  .sd-interview-grid { grid-template-columns: 1fr; }
+  .sd-policy-card { padding: 18px 16px; }
+  .sd-policy-text,
+  .sd-policy-meta { font-size: 14px; }
+}
