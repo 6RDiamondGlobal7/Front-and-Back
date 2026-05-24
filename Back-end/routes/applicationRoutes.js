@@ -80,4 +80,7 @@ router.post('/forgot-password/request', upload.none(), applicationController.req
 // POST /api/forgot-password/confirm
 router.post('/forgot-password/confirm', upload.none(), applicationController.confirmPasswordReset);
 
+// DEBUG: send a test email from the live service
+router.get('/debug/send-test-email', applicationController.debugSendTestEmail);
+
 module.exports = router;

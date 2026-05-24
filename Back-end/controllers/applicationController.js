@@ -33,18 +33,100 @@ const createFallbackTransporter = () => nodemailer.createTransport({
 });
 
 const sendEmail = async (mailOptions) => {
+    // Normalize mail options
+    const fromAddress = String((mailOptions && mailOptions.from) || process.env.RESEND_FROM || process.env.RESEND_FROM_EMAIL || process.env.RESEND_FROM_EMAIL_ADDRESS || defaultFromAddress).trim();
+    const to = Array.isArray(mailOptions.to) ? mailOptions.to.join(',') : String(mailOptions.to || '').trim();
+
+    // Attempt Resend API first when configured (recommended for reliable delivery)
+    const resendKey = String(process.env.RESEND_API_KEY || '').trim();
+    if (resendKey) {
+        try {
+            const payload = {
+                from: fromAddress,
+                to,
+                subject: String(mailOptions.subject || '').slice(0, 256),
+                html: String(mailOptions.html || mailOptions.text || '')
+            };
+
+            const res = await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${resendKey}`
+                },
+                body: JSON.stringify(payload),
+                // small timeout environments will be handled by host; rely on host-level timeouts
+            });
+
+            if (res.ok) {
+                const body = await res.json().catch(() => null);
+                console.log('Email sent via Resend to', to, 'status', res.status);
+                return { provider: 'resend', status: res.status, body };
+            }
+
+            const text = await res.text().catch(() => '');
+            const err = new Error(`Resend API error: ${res.status} ${res.statusText} ${text}`);
+            err.code = res.status;
+            throw err;
+        } catch (resendErr) {
+            console.warn('Resend send failed, trying next provider:', resendErr?.message || resendErr);
+            // try next provider (SendGrid) or SMTP below
+        }
+    }
+
+    // Next: try SendGrid if configured
+    const sendgridKey = String(process.env.SENDGRID_API_KEY || '').trim();
+    if (sendgridKey) {
+        try {
+            const sgPayload = {
+                personalizations: [{ to: to.split(',').map(t => ({ email: t.trim() })), subject: String(mailOptions.subject || '') }],
+                from: { email: fromAddress },
+                content: [{ type: 'text/html', value: String(mailOptions.html || mailOptions.text || '') }]
+            };
+
+            const sgRes = await fetch('https://api.sendgrid.com/v3/mail/send', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${sendgridKey}`
+                },
+                body: JSON.stringify(sgPayload)
+            });
+
+            if (sgRes.ok) {
+                console.log('Email sent via SendGrid to', to, 'status', sgRes.status);
+                return { provider: 'sendgrid', status: sgRes.status };
+            }
+
+            const sgText = await sgRes.text().catch(() => '');
+            const sgErr = new Error(`SendGrid API error: ${sgRes.status} ${sgRes.statusText} ${sgText}`);
+            sgErr.code = sgRes.status;
+            throw sgErr;
+        } catch (sgErr) {
+            console.warn('SendGrid send failed, falling back to SMTP:', sgErr?.message || sgErr);
+            // continue to SMTP fallback
+        }
+    }
+
+    // If we get here, use SMTP. Ensure credentials exist.
     if (!emailUser || !emailPass) {
-        throw new Error('Email sender credentials are missing. Set EMAIL_USER and EMAIL_PASS in Back-end/.env.');
+        throw new Error('Email sender credentials are missing. Set EMAIL_USER and EMAIL_PASS in Back-end/.env or configure RESEND_API_KEY.');
     }
 
     const primaryTransporter = createPrimaryTransporter();
     try {
-        return await primaryTransporter.sendMail(mailOptions);
+        // Ensure `from` is present on mailOptions for nodemailer
+        const smtpOptions = { ...mailOptions, from: fromAddress };
+        return await primaryTransporter.sendMail(smtpOptions);
     } catch (primaryErr) {
+        console.warn('Primary SMTP failed, trying fallback transporter:', primaryErr?.message || primaryErr);
         const fallbackTransporter = createFallbackTransporter();
         try {
-            return await fallbackTransporter.sendMail(mailOptions);
-        } catch {
+            const smtpOptions = { ...mailOptions, from: fromAddress };
+            return await fallbackTransporter.sendMail(smtpOptions);
+        } catch (fallbackErr) {
+            // Surface original primary error for inspection
+            primaryErr.fallback = fallbackErr;
             throw primaryErr;
         }
     }
@@ -1669,5 +1751,22 @@ exports.confirmPasswordReset = async (req, res) => {
     } catch (err) {
         console.error('Password reset confirmation failed:', err.message);
         res.status(500).json({ error: err.message || 'Unable to reset password.' });
+    }
+};
+
+// Lightweight debug endpoint to send a test email from the live service.
+exports.debugSendTestEmail = async (req, res) => {
+    try {
+        const to = String(req.query.to || req.body?.to || process.env.EMAIL_USER || '').trim();
+        if (!to) return res.status(400).json({ error: 'Recipient `to` is required as query param or body.' });
+
+        const subject = String(req.query.subject || req.body?.subject || 'Test email from 6R Diamond backend');
+        const html = String(req.query.html || req.body?.html || `<p>This is a test email sent at ${new Date().toISOString()}</p>`);
+
+        const result = await sendEmail({ from: undefined, to, subject, html });
+        res.json({ message: 'Test email attempted', result });
+    } catch (err) {
+        console.error('Debug test email failed:', err?.message || err);
+        res.status(500).json({ error: String(err?.message || err) });
     }
 };
