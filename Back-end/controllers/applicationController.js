@@ -1032,7 +1032,7 @@ exports.saveInterviewSchedules = async (req, res) => {
                 if (applicantInfo?.email) {
                     try {
                         await sendEmail({
-                            from: `"6R Diamond Recruitment" <${defaultFromAddress}>`,
+                            from: `"6R Diamond Recruitment" <${process.env.RESEND_FROM_EMAIL || defaultFromAddress}>`,
                             to: String(applicantInfo.email).trim(),
                             subject: 'Interview Status Updated',
                             html: `
@@ -1063,7 +1063,7 @@ exports.saveInterviewSchedules = async (req, res) => {
                 if (scheduledApplicant?.email) {
                     try {
                         await sendEmail({
-                            from: `"6R Diamond Recruitment" <${defaultFromAddress}>`,
+                            from: `"6R Diamond Recruitment" <${process.env.RESEND_FROM_EMAIL || defaultFromAddress}>`,
                             to: String(scheduledApplicant.email).trim(),
                             subject: 'Your Interview Schedule is Ready',
                             html: `
@@ -1414,7 +1414,7 @@ exports.submitApplication = async (req, res) => {
         if (email) { 
             try {
                 const mailOptions = {
-                    from: `"6R Diamond Recruitment" <${defaultFromAddress}>`, 
+                    from: `"6R Diamond Recruitment" <${process.env.RESEND_FROM_EMAIL || defaultFromAddress}>`, 
                     to: email, 
                     subject: 'Application Received - Login Credentials',
                     html: `
@@ -1596,7 +1596,7 @@ exports.updateApplicantStatus = async (req, res) => {
                             ? 'You are now in the interview stage. HR will send a separate email once your interview date and time are scheduled.'
                             : 'Please log in to the application portal to view more details or updates.';
                 const mailOptions = {
-                    from: `"6R Diamond Recruitment" <${defaultFromAddress}>`,
+                    from: `"6R Diamond Recruitment" <${process.env.RESEND_FROM_EMAIL || defaultFromAddress}>`,
                     to: recipient,
                     subject: `Application Status Update: ${statusLabel}`,
                     html: `
@@ -1704,7 +1704,7 @@ exports.requestPasswordReset = async (req, res) => {
         });
 
         await sendEmail({
-            from: `"6R Diamond Recruitment" <${defaultFromAddress}>`,
+            from: `"6R Diamond Recruitment" <${process.env.RESEND_FROM_EMAIL || defaultFromAddress}>`,
             to: accountEmail,
             subject: 'Password Reset Verification Code',
             html: `<p>${formatApplicantGreeting(data.first_name, data.last_name)},</p><p>Your password reset code is <strong>${code}</strong>.</p><p>This code will expire in 15 minutes.</p>`
