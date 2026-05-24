@@ -54,7 +54,13 @@ const sendEmail = async (mailOptions) => {
             }
             return await resp.json();
         } catch (resendErr) {
-            console.warn('Resend delivery failed, falling back to SMTP:', resendErr && resendErr.message ? resendErr.message : resendErr);
+            const resendMessage = resendErr && resendErr.message ? resendErr.message : resendErr;
+            console.warn('Resend delivery failed:', resendMessage);
+            const allowSmtpFallback = String(process.env.EMAIL_SMTP_FALLBACK || '').toLowerCase() === 'true' || String(process.env.NODE_ENV || '').toLowerCase() !== 'production';
+            if (!allowSmtpFallback) {
+                throw resendErr;
+            }
+            console.warn('Falling back to SMTP because SMTP fallback is enabled.');
         }
     }
     if (!emailUser || !emailPass) {
