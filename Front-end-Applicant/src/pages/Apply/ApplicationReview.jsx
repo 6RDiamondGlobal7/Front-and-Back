@@ -49,9 +49,7 @@ const ApplicationReview = () => {
 
   const expectedFullName = [
     formData.firstName,
-    formData.middleInitial,
     formData.lastName,
-    formData.suffix
   ]
     .filter(Boolean)
     .join(' ')
@@ -299,7 +297,7 @@ const ApplicationReview = () => {
             <h3 className="af-modal-yellow-title">Confirmation</h3>
             <p className="af-modal-yellow-desc">Please confirm that you agree to the declaration: the information and documents you provided are true and accurate, you consent to processing of your personal data for recruitment purposes, and you understand that falsification may result in disqualification.</p>
             <div className="af-modal-yellow-input-group">
-                <label>Type your full name exactly as entered in the application form</label>
+                <label>Type your first name and last name exactly as entered in the application form</label>
                 {expectedFullName && (
                   <div style={{ marginBottom: '8px', fontSize: '12px', color: '#64748b', fontWeight: 600 }}>
                     Application form name: {expectedFullName}
