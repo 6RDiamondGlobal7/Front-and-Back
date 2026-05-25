@@ -40,12 +40,27 @@ const ApplicationReview = () => {
 
   const [agreed, setAgreed] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [showIncomplete, setShowIncomplete] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [showSample, setShowSample] = useState(false);
   const [signature, setSignature] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { showToast } = useToast();
+
+  const expectedFullName = [
+    formData.firstName,
+    formData.middleInitial,
+    formData.lastName,
+    formData.suffix
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const normalizeName = (value) => String(value || '')
+    .toUpperCase()
+    .replace(/\s+/g, ' ')
+    .trim();
 
   const handleBack = () => {
     localStorage.setItem('formStep', '4');
@@ -54,9 +69,28 @@ const ApplicationReview = () => {
 
   // --- SUBMIT FUNCTION WITH FILES ---
   const handleConfirmAction = async () => {
-    if (!signature.trim()) {
-      setShowConfirm(false);
-      setTimeout(() => setShowIncomplete(true), 100);
+    const typedName = normalizeName(signature);
+    const expectedName = normalizeName(expectedFullName);
+
+    if (!typedName) {
+      showToast({
+        type: 'error',
+        title: 'Submission Failed',
+        message: 'Please type your full name exactly as entered in the application form.',
+        timeout: 9000
+      });
+      return;
+    }
+
+    if (!expectedName || typedName !== expectedName) {
+      showToast({
+        type: 'error',
+        title: 'Submission Failed',
+        message: expectedFullName
+          ? `The name must match your application form name: ${expectedFullName}.`
+          : 'The name must match the name entered in the application form.',
+        timeout: 9000
+      });
       return;
     } 
 
@@ -262,7 +296,12 @@ const ApplicationReview = () => {
             <h3 className="af-modal-yellow-title">Confirmation</h3>
             <p className="af-modal-yellow-desc">Please confirm that you agree to the declaration: the information and documents you provided are true and accurate, you consent to processing of your personal data for recruitment purposes, and you understand that falsification may result in disqualification.</p>
             <div className="af-modal-yellow-input-group">
-                <label>Type your full name (in capital letters)</label>
+                <label>Type your full name exactly as entered in the application form</label>
+                {expectedFullName && (
+                  <div style={{ marginBottom: '8px', fontSize: '12px', color: '#64748b', fontWeight: 600 }}>
+                    Application form name: {expectedFullName}
+                  </div>
+                )}
                 <input type="text" placeholder="FIRST NAME LAST NAME" value={signature} onChange={(e) => setSignature(e.target.value.toUpperCase())} autoFocus />
             </div>
             <div className="af-modal-yellow-actions">
