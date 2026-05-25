@@ -3,7 +3,6 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import './ApplicationForm.css';
 import { getApiBaseUrl } from '../../config/api';
-import { useToast } from '../../components/ui/ToastProvider';
 
 // --- ICONS ---
 const IconFileBlue = () => ( <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4A90E2" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg> );
@@ -44,7 +43,9 @@ const ApplicationReview = () => {
   const [showSample, setShowSample] = useState(false);
   const [signature, setSignature] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { showToast } = useToast();
+  const [showError, setShowError] = useState(false);
+  const [errorTitle, setErrorTitle] = useState('Submission Error');
+  const [errorMessage, setErrorMessage] = useState('');
 
   const expectedFullName = [
     formData.firstName,
@@ -62,6 +63,13 @@ const ApplicationReview = () => {
     .replace(/\s+/g, ' ')
     .trim();
 
+  const openErrorPopup = (title, message) => {
+    setErrorTitle(title || 'Submission Error');
+    setErrorMessage(message || 'Something went wrong.');
+    setShowConfirm(false);
+    setShowError(true);
+  };
+
   const handleBack = () => {
     localStorage.setItem('formStep', '4');
     navigate(`/apply/${branch}/${roleId}/form`, { state: formData });
@@ -73,24 +81,20 @@ const ApplicationReview = () => {
     const expectedName = normalizeName(expectedFullName);
 
     if (!typedName) {
-      showToast({
-        type: 'error',
-        title: 'Submission Failed',
-        message: 'Please type your full name exactly as entered in the application form.',
-        timeout: 9000
-      });
+      openErrorPopup(
+        'Submission Error',
+        'Please type your full name exactly as entered in the application form.'
+      );
       return;
     }
 
     if (!expectedName || typedName !== expectedName) {
-      showToast({
-        type: 'error',
-        title: 'Submission Failed',
-        message: expectedFullName
+      openErrorPopup(
+        'Submission Error',
+        expectedFullName
           ? `The name must match your application form name: ${expectedFullName}.`
-          : 'The name must match the name entered in the application form.',
-        timeout: 9000
-      });
+          : 'The name must match the name entered in the application form.'
+      );
       return;
     } 
 
@@ -148,8 +152,7 @@ const ApplicationReview = () => {
     } catch (error) {
       console.error("Submission Error:", error);
       const errorMsg = error.response?.data?.error || error.message;
-      showToast({ type: 'error', title: 'Submission Failed', message: errorMsg, timeout: 9000 });
-      setShowConfirm(false);
+      openErrorPopup('Submission Failed', errorMsg);
     } finally {
         setIsSubmitting(false);
     }
@@ -322,6 +325,17 @@ const ApplicationReview = () => {
             <h3 className="af-modal-yellow-title">Application Submitted!</h3>
             <p className="af-modal-yellow-desc">Your application and documents have been sent. Your applicant number and password were also sent to your email.</p>
             <button className="af-yellow-btn-ok" onClick={() => navigate('/apply')}>Close</button>
+          </div>
+        </div>
+      )}
+
+      {showError && (
+        <div className="af-modal-overlay">
+          <div className="af-status-modal yellow-bg fade-in" style={{ maxWidth: '400px', padding: '40px 32px' }}>
+            <div className="af-status-icon-bg error"><IconWarningLarge /></div>
+            <h3 className="af-status-title">{errorTitle}</h3>
+            <p className="af-status-desc">{errorMessage}</p>
+            <button className="af-status-btn error" onClick={() => setShowError(false)}>OK</button>
           </div>
         </div>
       )}
