@@ -767,8 +767,6 @@ const findExistingApplicantApplications = async ({ email, firstName, lastName })
         email,
         first_name,
         last_name,
-        created_at,
-        createdAt,
         applicantfacttable (applied_date, status (applied, interview, hired, rejected))
     `;
 
