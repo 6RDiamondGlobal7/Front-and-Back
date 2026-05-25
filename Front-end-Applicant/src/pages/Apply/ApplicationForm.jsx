@@ -648,10 +648,14 @@ const ApplicationForm = () => {
   };
 
   const validateStep3 = () => {
-    const required = ['firstName', 'lastName', 'nationality', 'birthday', 'age', 'email', 'contactNumber', 'region', 'province', 'city', 'barangay', 'detailedAddress'];
+    const required = ['firstName', 'lastName', 'nationality', 'birthday', 'age', 'email', 'contactNumber', 'region', 'province', 'city', 'detailedAddress'];
     let missing = false;
     for (let field of required) {
       if (!formData[field] || formData[field].toString().trim() === '') missing = true;
+    }
+    // Barangay is required only when there are barangay options for the selected city.
+    if (Array.isArray(barangayOptions) && barangayOptions.length > 0) {
+      if (!formData.barangay || formData.barangay.toString().trim() === '') missing = true;
     }
     let invalidContact = false;
     if (!formData.contactNumber.startsWith('0') || formData.contactNumber.length !== 11) {
@@ -802,14 +806,26 @@ const ApplicationForm = () => {
               </div>
               <div className="af-group">
                 <label className="af-label">Barangay <span className="req">*</span></label>
-                <FormSelect
-                  name="barangay"
-                  value={formData.barangay}
-                  options={barangayOptions}
-                  onChange={handleChange}
-                  placeholder={formData.city ? 'Select Barangay' : 'Select City/Municipality First'}
-                  disabled={!formData.city}
-                />
+                {Array.isArray(barangayOptions) && barangayOptions.length > 0 ? (
+                  <FormSelect
+                    name="barangay"
+                    value={formData.barangay}
+                    options={barangayOptions}
+                    onChange={handleChange}
+                    placeholder={formData.city ? 'Select Barangay' : 'Select City/Municipality First'}
+                    disabled={!formData.city}
+                  />
+                ) : (
+                  <input
+                    type="text"
+                    name="barangay"
+                    className="af-input"
+                    placeholder={formData.city ? 'No barangays available — enter your barangay or N/A' : 'Select City/Municipality First'}
+                    value={formData.barangay}
+                    onChange={handleChange}
+                    disabled={!formData.city}
+                  />
+                )}
               </div>
               <div className="af-group full-width"><label className="af-label">Detailed Address (House No., Street, Subdivision) <span className="req">*</span></label><input type="text" name="detailedAddress" className="af-input" value={formData.detailedAddress} onChange={handleChange} placeholder="e.g., 123 Sampaguita Street, Villa Esperanza Subdivision" /></div>
             </div>

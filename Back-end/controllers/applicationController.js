@@ -1377,26 +1377,48 @@ exports.submitApplication = async (req, res) => {
 
     try {
         const duplicateApplications = await findExistingApplicantApplications({ email, firstName, lastName });
-        if (duplicateApplications.length > 0) {
-            const activeApplication = duplicateApplications.find((applicantRow) => getApplicantStatusLabel(applicantRow) !== 'Rejected');
-            if (activeApplication) {
+        // Evaluate duplicates strictly: block if any existing record matches by email OR by exact first+last name.
+        const cleanEmail = normalizeEmail(email);
+        const cleanFirst = normalizeText(firstName);
+        const cleanLast = normalizeText(lastName);
+
+        const hasMatchingEmail = duplicateApplications.some((r) => normalizeEmail(r.email) === cleanEmail && r.email);
+        const hasMatchingName = duplicateApplications.some((r) => normalizeText(r.first_name) === cleanFirst && normalizeText(r.last_name) === cleanLast);
+
+        if (hasMatchingEmail || hasMatchingName) {
+            // If any matching record exists that is not Rejected, block immediately.
+            const active = duplicateApplications.find((r) => {
+                const sameEmail = r.email && normalizeEmail(r.email) === cleanEmail;
+                const sameName = normalizeText(r.first_name) === cleanFirst && normalizeText(r.last_name) === cleanLast;
+                return (sameEmail || sameName) && getApplicantStatusLabel(r) !== 'Rejected';
+            });
+
+            if (active) {
                 return res.status(409).json({
                     error: 'You already submitted an application. One application per applicant is allowed until HR marks it Rejected and 30 days have passed.'
                 });
             }
 
-            const latestRejected = duplicateApplications
-                .filter((applicantRow) => getApplicantStatusLabel(applicantRow) === 'Rejected')
+            // If only rejected matches exist, enforce reapply wait period per latest rejected matching record.
+            const rejectedMatches = duplicateApplications
+                .filter((r) => {
+                    const sameEmail = r.email && normalizeEmail(r.email) === cleanEmail;
+                    const sameName = normalizeText(r.first_name) === cleanFirst && normalizeText(r.last_name) === cleanLast;
+                    return (sameEmail || sameName) && getApplicantStatusLabel(r) === 'Rejected';
+                })
                 .sort((a, b) => {
                     const aTime = getApplicantAppliedAt(a)?.getTime() || 0;
                     const bTime = getApplicantAppliedAt(b)?.getTime() || 0;
                     return bTime - aTime;
-                })[0];
-
-            if (latestRejected && !isReapplyAllowed(latestRejected)) {
-                return res.status(409).json({
-                    error: 'You may submit a new application only after 30 days from rejection.'
                 });
+
+            if (rejectedMatches.length > 0) {
+                const latestRejected = rejectedMatches[0];
+                if (!isReapplyAllowed(latestRejected)) {
+                    return res.status(409).json({
+                        error: 'You may submit a new application only after 30 days from rejection.'
+                    });
+                }
             }
         }
 
@@ -1499,6 +1521,8 @@ exports.submitApplication = async (req, res) => {
             if (resolvedJobId) {
                 factPayload.job_id = resolvedJobId;
             }
+            // Ensure we record the exact submitted timestamp for accurate application times
+            factPayload.applied_date = new Date().toISOString();
             await supabase.from('applicantfacttable').insert([factPayload]);
 
             if (resolvedJobId) {
